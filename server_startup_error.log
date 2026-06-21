@@ -25,18 +25,25 @@ Column interview_reports_enabled already exists in users table.
 Column resume_notifications_enabled already exists in users table.
 Column marketing_emails_enabled already exists in users table.
 Column role already exists in users table.
+Column user_id already exists in chat_messages table.
+Column message_role already exists in chat_messages table.
+Column message_content already exists in chat_messages table.
+Column timestamp already exists in chat_messages table.
 Questions with skills already exist in the database. Skipping preloading.
-Database Path: database/hirwise.db
-Database Exists: True
+AI Provider: Groq (Llama 3.3)
+Transcription Provider: Groq Whisper API
+Database Engine: PostgreSQL
+Database Host: db.bkdhoauhxavbernvkvgn.supabase.co
+Database Name: postgres
+SQLALCHEMY_DATABASE_URI: postgresql://postgres:*****@db.bkdhoauhxavbernvkvgn.supabase.co:5432/postgres
 Total Users: 3
+Total Chats: 1
 Total Interviews: 1
-Total Chats: 0
+[INFO] Groq client initialized in transcription service.
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99979, Requested 45. Please try again in 20.736s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99977, Requested 45. Please try again in 19.008s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [INFO] GROQ_API_KEY detected.
 [WARNING] CLAUDE_API_KEY missing.
 [INFO] Groq initialized successfully.
@@ -51,16 +58,16 @@ WARNING: This is a development server. Do not use it in a production deployment.
 Press CTRL+C to quit
 C:\Users\aggar\OneDrive\Desktop\hirwise ai\app.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
   current_date = datetime.utcnow().date()
-127.0.0.1 - - [21/Jun/2026 12:28:05] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:06] "POST /login HTTP/1.1" 302 -
-[WARNING] Email not sent (SMTP server not configured): New Login Detected - HireWise AI to e2e_student_1782024999@hirewise.ai
+127.0.0.1 - - [21/Jun/2026 14:55:33] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:55:36] "POST /login HTTP/1.1" 302 -
 C:\Users\aggar\OneDrive\Desktop\hirwise ai\app.py:59: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
   return User.query.get(int(user_id))
-127.0.0.1 - - [21/Jun/2026 12:28:06] "GET /dashboard HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:06] "GET /profile HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:06] "POST /mentor/session/new HTTP/1.1" 302 -
-127.0.0.1 - - [21/Jun/2026 12:28:06] "GET /mentor?session_id=1 HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99998, Requested 329. Please try again in 4m42.528s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[WARNING] Email not sent (SMTP server not configured): New Login Detected - HireWise AI to e2e_student_1782033857@hirewise.ai
+127.0.0.1 - - [21/Jun/2026 14:55:37] "GET /dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:55:37] "GET /profile HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:55:40] "POST /mentor/session/new HTTP/1.1" 302 -
+127.0.0.1 - - [21/Jun/2026 14:55:42] "GET /mentor?session_id=2 HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99815, Requested 329. Please try again in 2m4.416s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: What is array?
@@ -90,7 +97,7 @@ print(arr[2])  # Output: 30 (O(1) access)
 ```
 
 Can you explain why search in an unsorted array takes $O(N)$ time complexity?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99998, Requested 329. Please try again in 4m42.528s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99815, Requested 329. Please try again in 2m4.416s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -118,10 +125,10 @@ print(arr[2])  # Output: 30 (O(1) access)
 ```
 
 Can you explain why search in an unsorted array takes $O(N)$ time complexity?
-Time: 0.2 sec
+Time: 1.5 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:06] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99997, Requested 531. Please try again in 7m36.192s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:55:49] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99807, Requested 531. Please try again in 4m52.032s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: Give interview questions on arrays.
@@ -139,7 +146,7 @@ Here are three high-frequency interview questions focusing on Arrays:
 3. **Merge Intervals**: Given a collection of intervals, merge all overlapping intervals ($O(N \log N)$ time due to sorting).
 
 Which of these would you like to solve or discuss in detail?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99997, Requested 531. Please try again in 7m36.192s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99807, Requested 531. Please try again in 4m52.032s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -155,10 +162,10 @@ Here are three high-frequency interview questions focusing on Arrays:
 3. **Merge Intervals**: Given a collection of intervals, merge all overlapping intervals ($O(N \log N)$ time due to sorting).
 
 Which of these would you like to solve or discuss in detail?
-Time: 0.5 sec
+Time: 1.8 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:07] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99996, Requested 702. Please try again in 10m3.072s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:55:58] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99796, Requested 702. Please try again in 7m10.272s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: Explain the first question.
@@ -180,7 +187,7 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99996, Requested 702. Please try again in 10m3.072s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99796, Requested 702. Please try again in 7m10.272s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -200,10 +207,10 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Time: 0.2 sec
+Time: 1.1 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:08] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99996, Requested 816. Please try again in 11m41.568s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:56:06] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99789, Requested 816. Please try again in 8m42.72s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: I know Java and Flask.
@@ -219,7 +226,7 @@ Hello E2E Student Test! I have updated your mentor profile. I now remember that 
 To align with this profile, I will tailor our coding, DSA, and project review discussions to focus on backend architecture, REST API design in Flask, and object-oriented principles in Java.
 
 What would you like to prepare next using **Java and Flask**?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99996, Requested 816. Please try again in 11m41.568s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99789, Requested 816. Please try again in 8m42.72s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -233,10 +240,10 @@ Hello E2E Student Test! I have updated your mentor profile. I now remember that 
 To align with this profile, I will tailor our coding, DSA, and project review discussions to focus on backend architecture, REST API design in Flask, and object-oriented principles in Java.
 
 What would you like to prepare next using **Java and Flask**?
-Time: 0.4 sec
+Time: 0.8 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:08] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99995, Requested 912. Please try again in 13m3.648s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:56:11] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99782, Requested 912. Please try again in 9m59.616s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: What should I learn next?
@@ -258,7 +265,7 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99995, Requested 912. Please try again in 13m3.648s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99782, Requested 912. Please try again in 9m59.616s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -278,10 +285,10 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Time: 0.3 sec
+Time: 1.3 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:09] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99994, Requested 1020. Please try again in 14m36.096s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:56:18] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99775, Requested 1020. Please try again in 11m26.88s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: I am preparing for Amazon.
@@ -303,7 +310,7 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99994, Requested 1020. Please try again in 14m36.096s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99775, Requested 1020. Please try again in 11m26.88s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -323,10 +330,10 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Time: 0.3 sec
+Time: 1.3 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:09] "POST /mentor/message/send HTTP/1.1" 200 -
-[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99994, Requested 1121. Please try again in 16m3.36s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:56:24] "POST /mentor/message/send HTTP/1.1" 200 -
+[ERROR] Groq API call crashed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99768, Requested 1121. Please try again in 12m48.096s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 
 ==================================================
 User Query: Generate a mock interview.
@@ -348,7 +355,7 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99994, Requested 1121. Please try again in 16m3.36s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Errors: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99768, Requested 1121. Please try again in 12m48.096s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 ==================================================
 
 
@@ -368,21 +375,18 @@ Placement Preparation is a key concept in computer science and placement intervi
 Used in backend databases, routing algorithms, or application state management.
 
 Would you like to practice a coding problem on Placement Preparation, or check standard interview questions for this topic?
-Time: 0.3 sec
+Time: 1.1 sec
 
-127.0.0.1 - - [21/Jun/2026 12:28:10] "POST /mentor/message/send HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:56:30] "POST /mentor/message/send HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99991, Requested 45. Please try again in 31.104s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:13] "POST /interview/select HTTP/1.1" 302 -
+[INFO] GroqService initialized successfully.
+127.0.0.1 - - [21/Jun/2026 14:56:34] "POST /interview/select HTTP/1.1" 302 -
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99989, Requested 45. Please try again in 29.376s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:14] "GET /interview/room/2 HTTP/1.1" 200 -
+[INFO] GroqService initialized successfully.
+127.0.0.1 - - [21/Jun/2026 14:56:38] "GET /interview/room/2 HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99986, Requested 45. Please try again in 26.784s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:16] "GET /interview/room/2 HTTP/1.1" 200 -
+[INFO] GroqService initialized successfully.
+127.0.0.1 - - [21/Jun/2026 14:56:42] "GET /interview/room/2 HTTP/1.1" 200 -
 
 [ STAGE 1 ] Upload Started - Parsing form payload...
 [ STAGE 2 ] Upload Completed - Response files successfully written to server.
@@ -390,24 +394,22 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Speech Transcript text: "Python lists are mutable meaning their elements can be modified, whereas tuples are immutable and their values cannot be changed after creation."
 [ STAGE 4 ] Whisper Completed - Calculating speech WPM rate and filler frequency...
 [ STAGE 5 ] Gemini Started - Requesting answer evaluation ratings...
+Groq API adaptive evaluation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99885, Requested 554. Please try again in 6m19.296s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}. Falling back to rule-based adaptive evaluation.
 [ STAGE 6 ] Groq Completed - Content scores generated successfully.
 [ STAGE 7 ] Feedback Generated - Committing response records to SQLite...
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99983, Requested 45. Please try again in 24.191999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [ INFO ] Bayesian update for 'Python': 50.0 -> 50.4 (unc: 7.34)
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99981, Requested 45. Please try again in 22.464s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99978, Requested 45. Please try again in 19.872s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [ SUCCESS ] Response saved and committed successfully.
-127.0.0.1 - - [21/Jun/2026 12:28:23] "POST /interview/submit_answer HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:57:16] "POST /interview/submit_answer HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99977, Requested 45. Please try again in 19.008s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:24] "GET /interview/room/2 HTTP/1.1" 200 -
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99983, Requested 45. Please try again in 24.191999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:57:19] "GET /interview/room/2 HTTP/1.1" 200 -
 
 [ STAGE 1 ] Upload Started - Parsing form payload...
 [ STAGE 2 ] Upload Completed - Response files successfully written to server.
@@ -415,25 +417,25 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Speech Transcript text: "I do not know much about stacks and queues, they are some data structures."
 [ STAGE 4 ] Whisper Completed - Calculating speech WPM rate and filler frequency...
 [ STAGE 5 ] Gemini Started - Requesting answer evaluation ratings...
+Groq API adaptive evaluation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99980, Requested 549. Please try again in 7m37.056s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}. Falling back to rule-based adaptive evaluation.
 [ STAGE 6 ] Groq Completed - Content scores generated successfully.
 [ STAGE 7 ] Feedback Generated - Committing response records to SQLite...
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99975, Requested 45. Please try again in 17.28s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99979, Requested 45. Please try again in 20.736s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ INFO ] Bayesian update for 'Decorators': 53.8 -> 52.0 (unc: 7.31)
 [ INFO ] Skill Graph Propagation Updates: Decorators->Lists (-0.9), Decorators->Data Types (-0.9), Lists->Python (-0.4), Lists->Generators (-0.4), Data Types->Python (-0.4), Data Types->Generators (-0.4), Data Types->Memory Management (-0.4), Data Types->Metaclasses (-0.4)
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99974, Requested 45. Please try again in 16.416s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99972, Requested 45. Please try again in 14.688s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99975, Requested 45. Please try again in 17.28s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ SUCCESS ] Response saved and committed successfully.
-127.0.0.1 - - [21/Jun/2026 12:28:28] "POST /interview/submit_answer HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:58:08] "POST /interview/submit_answer HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99971, Requested 45. Please try again in 13.824s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:30] "GET /interview/room/2 HTTP/1.1" 200 -
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99968, Requested 45. Please try again in 11.232s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:58:11] "GET /interview/room/2 HTTP/1.1" 200 -
 
 [ STAGE 1 ] Upload Started - Parsing form payload...
 [ STAGE 2 ] Upload Completed - Response files successfully written to server.
@@ -441,25 +443,25 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Speech Transcript text: "A primary key uniquely identifies each record in a database table and cannot contain nulls. A unique key also prevents duplicates but allows a single null."
 [ STAGE 4 ] Whisper Completed - Calculating speech WPM rate and filler frequency...
 [ STAGE 5 ] Gemini Started - Requesting answer evaluation ratings...
+Groq API adaptive evaluation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99965, Requested 553. Please try again in 7m27.551999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}. Falling back to rule-based adaptive evaluation.
 [ STAGE 6 ] Groq Completed - Content scores generated successfully.
 [ STAGE 7 ] Feedback Generated - Committing response records to SQLite...
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99969, Requested 45. Please try again in 12.095999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99964, Requested 45. Please try again in 7.776s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ INFO ] Bayesian update for 'Generators': 53.0 -> 54.1 (unc: 7.31)
 [ INFO ] Skill Graph Propagation Updates: Generators->Lists (+0.6), Generators->Data Types (+0.6), Lists->Python (+0.3), Lists->Decorators (+0.1), Data Types->Python (+0.3), Data Types->Decorators (+0.1), Data Types->Memory Management (+0.1), Data Types->Metaclasses (+0.1)
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99967, Requested 45. Please try again in 10.368s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99965, Requested 45. Please try again in 8.64s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99962, Requested 45. Please try again in 6.047999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ SUCCESS ] Response saved and committed successfully.
-127.0.0.1 - - [21/Jun/2026 12:28:34] "POST /interview/submit_answer HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:58:57] "POST /interview/submit_answer HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99963, Requested 45. Please try again in 6.912s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:36] "GET /interview/room/2 HTTP/1.1" 200 -
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99956, Requested 45. Please try again in 864ms. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:59:01] "GET /interview/room/2 HTTP/1.1" 200 -
 
 [ STAGE 1 ] Upload Started - Parsing form payload...
 [ STAGE 2 ] Upload Completed - Response files successfully written to server.
@@ -467,25 +469,25 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Speech Transcript text: "GIL stands for Global Interpreter Lock which allows only one thread to control CPython execution, preventing multiple threads from executing python code in parallel."
 [ STAGE 4 ] Whisper Completed - Calculating speech WPM rate and filler frequency...
 [ STAGE 5 ] Gemini Started - Requesting answer evaluation ratings...
+Groq API adaptive evaluation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99952, Requested 563. Please try again in 7m24.96s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}. Falling back to rule-based adaptive evaluation.
 [ STAGE 6 ] Groq Completed - Content scores generated successfully.
 [ STAGE 7 ] Feedback Generated - Committing response records to SQLite...
 [INFO] GROQ_API_KEY detected in GroqService.
-[ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99962, Requested 45. Please try again in 6.047999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+[INFO] GroqService initialized successfully.
 [ INFO ] Bayesian update for 'DSA': 50.0 -> 50.8 (unc: 7.31)
 [ INFO ] Skill Graph Propagation Updates: DSA->Basic Data Structures (+0.2), DSA->Searching (+0.2)
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99960, Requested 45. Please try again in 4.32s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99986, Requested 45. Please try again in 26.784s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99958, Requested 45. Please try again in 2.592s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99967, Requested 45. Please try again in 10.368s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ SUCCESS ] Response saved and committed successfully.
-127.0.0.1 - - [21/Jun/2026 12:28:41] "POST /interview/submit_answer HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 14:59:35] "POST /interview/submit_answer HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99956, Requested 45. Please try again in 864ms. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:43] "GET /interview/room/2 HTTP/1.1" 200 -
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99957, Requested 45. Please try again in 1.728s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 14:59:39] "GET /interview/room/2 HTTP/1.1" 200 -
 
 [ STAGE 1 ] Upload Started - Parsing form payload...
 [ STAGE 2 ] Upload Completed - Response files successfully written to server.
@@ -493,6 +495,7 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Speech Transcript text: "Dynamic programming solves complex problems by breaking them down into simpler overlapping subproblems and caching the results with memoization."
 [ STAGE 4 ] Whisper Completed - Calculating speech WPM rate and filler frequency...
 [ STAGE 5 ] Gemini Started - Requesting answer evaluation ratings...
+Groq API adaptive evaluation failed: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99954, Requested 545. Please try again in 7m11.135999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}. Falling back to rule-based adaptive evaluation.
 [ STAGE 6 ] Groq Completed - Content scores generated successfully.
 [ STAGE 7 ] Feedback Generated - Committing response records to SQLite...
 [INFO] GROQ_API_KEY detected in GroqService.
@@ -501,22 +504,23 @@ Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3
 [ INFO ] Skill Graph Propagation Updates: Basic Data Structures->DSA (-1.4), Basic Data Structures->Linked Lists (-1.1), Basic Data Structures->Sorting (-1.1), Basic Data Structures->Dynamic Programming (-1.1), Basic Data Structures->Trees (-1.1), DSA->Searching (-0.5), Linked Lists->Graph Algorithms (-0.4), Searching->Graph Algorithms (-0.2)
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99997, Requested 45. Please try again in 36.288s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99969, Requested 45. Please try again in 12.095999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
 [ SUCCESS ] Response saved and committed successfully.
-127.0.0.1 - - [21/Jun/2026 12:28:47] "POST /interview/submit_answer HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:10] "POST /interview/submit_answer HTTP/1.1" 200 -
 [INFO] GROQ_API_KEY detected in GroqService.
 [ERROR] GroqService initialization failed:
-Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99993, Requested 45. Please try again in 32.832s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-127.0.0.1 - - [21/Jun/2026 12:28:51] "GET /interview/finalize/2 HTTP/1.1" 302 -
-[WARNING] Email not sent (SMTP server not configured): Mock Interview Performance Report - HireWise AI to e2e_student_1782024999@hirewise.ai
+Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99961, Requested 45. Please try again in 5.184s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+Failed to generate session feedback via Groq: Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kvj6k19ne0rsexcxe8gexrqc` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99958, Requested 290. Please try again in 3m34.272s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+127.0.0.1 - - [21/Jun/2026 15:00:22] "GET /interview/finalize/2 HTTP/1.1" 302 -
+[WARNING] Email not sent (SMTP server not configured): Mock Interview Performance Report - HireWise AI to e2e_student_1782033857@hirewise.ai
+127.0.0.1 - - [21/Jun/2026 15:00:23] "GET /interview/feedback/2 HTTP/1.1" 200 -
 [WARNING] Email not sent (SMTP server not configured): Admin Alert: Interview Completed to admin@hirewise.ai
-127.0.0.1 - - [21/Jun/2026 12:28:51] "GET /interview/feedback/2 HTTP/1.1" 200 -
-[WARNING] Email not sent (SMTP server not configured): Security Alert: Login from New Device/Location - HireWise AI to admin@hirewise.ai
-127.0.0.1 - - [21/Jun/2026 12:28:51] "POST /admin/login HTTP/1.1" 302 -
-127.0.0.1 - - [21/Jun/2026 12:28:51] "GET /admin/dashboard HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:51] "GET /admin/dashboard HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:52] "GET /admin/users HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:52] "GET /admin/mentor-analytics HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:52] "GET /admin/interviews HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:52] "GET /admin/analytics HTTP/1.1" 200 -
-127.0.0.1 - - [21/Jun/2026 12:28:57] "GET /admin/research HTTP/1.1" 200 -
+[WARNING] Email not sent (SMTP server not configured): New Login Detected - HireWise AI to admin@hirewise.ai
+127.0.0.1 - - [21/Jun/2026 15:00:25] "POST /admin/login HTTP/1.1" 302 -
+127.0.0.1 - - [21/Jun/2026 15:00:28] "GET /admin/dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:32] "GET /admin/dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:34] "GET /admin/users HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:37] "GET /admin/mentor-analytics HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:38] "GET /admin/interviews HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:43] "GET /admin/analytics HTTP/1.1" 200 -
+127.0.0.1 - - [21/Jun/2026 15:00:47] "GET /admin/research HTTP/1.1" 200 -

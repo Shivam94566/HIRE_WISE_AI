@@ -1515,7 +1515,7 @@ def database_export():
         db.session.add(log)
         db.session.commit()
         
-        return send_file(db_file, as_attachment=True, download_name="hirwise.db")
+        return send_file(db_file, as_attachment=True, download_name="hirewise.db")
     except Exception as e:
         flash(f"Failed to export database: {str(e)}", "danger")
         return redirect(url_for('admin.database_management'))

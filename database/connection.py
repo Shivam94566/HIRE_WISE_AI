@@ -79,7 +79,7 @@ def init_db(app):
             columns_to_add = [
                 ("question_ids", "TEXT DEFAULT '[]'"),
                 ("current_index", "INTEGER DEFAULT 0"),
-                ("asked_follow_up", "BOOLEAN DEFAULT 0"),
+                ("asked_follow_up", "BOOLEAN DEFAULT FALSE"),
                 ("last_question_id", "INTEGER DEFAULT NULL"),
                 ("last_question_text", "TEXT DEFAULT NULL"),
                 ("pending_follow_up", "TEXT DEFAULT NULL"),
@@ -105,17 +105,27 @@ def init_db(app):
 
             # 5. users table preference columns
             preferences_cols = [
-                ("login_emails_enabled", "BOOLEAN DEFAULT 1"),
-                ("security_alerts_enabled", "BOOLEAN DEFAULT 1"),
-                ("interview_reports_enabled", "BOOLEAN DEFAULT 1"),
-                ("resume_notifications_enabled", "BOOLEAN DEFAULT 1"),
-                ("marketing_emails_enabled", "BOOLEAN DEFAULT 0")
+                ("login_emails_enabled", "BOOLEAN DEFAULT TRUE"),
+                ("security_alerts_enabled", "BOOLEAN DEFAULT TRUE"),
+                ("interview_reports_enabled", "BOOLEAN DEFAULT TRUE"),
+                ("resume_notifications_enabled", "BOOLEAN DEFAULT TRUE"),
+                ("marketing_emails_enabled", "BOOLEAN DEFAULT FALSE")
             ]
             for col_name, col_type in preferences_cols:
                 add_column_if_missing("users", col_name, col_type)
             
             # Add role column
             add_column_if_missing("users", "role", "VARCHAR(50) DEFAULT 'user'")
+
+            # 6. chat_messages table memory columns
+            chat_msg_cols = [
+                ("user_id", "INTEGER DEFAULT NULL"),
+                ("message_role", "VARCHAR(50) DEFAULT NULL"),
+                ("message_content", "TEXT DEFAULT NULL"),
+                ("timestamp", "DATETIME DEFAULT NULL")
+            ]
+            for col_name, col_type in chat_msg_cols:
+                add_column_if_missing("chat_messages", col_name, col_type)
 
         except Exception as e:
             print(f"Error during auto-migration database inspection: {e}")
@@ -194,11 +204,42 @@ def init_db(app):
             except Exception:
                 total_interviews = 0
                 
-            print(f"Database Path: {db_file}")
-            print(f"Database Exists: {db_exists}")
+            from urllib.parse import urlparse
+            try:
+                parsed = urlparse(db_uri)
+                db_host = parsed.hostname or "localhost"
+                db_engine = "SQLite" if db_uri.startswith("sqlite") else "PostgreSQL"
+                db_name = parsed.path.lstrip('/')
+                if db_engine == "SQLite":
+                    db_name = Path(db_name).name
+            except Exception:
+                db_host = "localhost"
+                db_engine = "SQLite"
+                db_name = "hirewise.db"
+
+            masked_db_uri = db_uri
+            if "@" in db_uri:
+                try:
+                    prefix, rest = db_uri.split("://", 1)
+                    credentials, host_info = rest.split("@", 1)
+                    if ":" in credentials:
+                        user, password = credentials.split(":", 1)
+                        masked_db_uri = f"{prefix}://{user}:*****@{host_info}"
+                except Exception:
+                    pass
+
+            ai_provider = "Groq (Llama 3.3)" if app.config.get("GROQ_API_KEY") else "Fallback (Rule-Based)"
+            trans_provider = "Groq Whisper API" if app.config.get("GROQ_API_KEY") else "Google SpeechRecognition"
+
+            print(f"AI Provider: {ai_provider}")
+            print(f"Transcription Provider: {trans_provider}")
+            print(f"Database Engine: {db_engine}")
+            print(f"Database Host: {db_host}")
+            print(f"Database Name: {db_name}")
+            print(f"SQLALCHEMY_DATABASE_URI: {masked_db_uri}")
             print(f"Total Users: {total_users}")
-            print(f"Total Interviews: {total_interviews}")
             print(f"Total Chats: {total_chats}")
+            print(f"Total Interviews: {total_interviews}")
             
             # Check and create daily backup at startup
             check_and_create_daily_backup(app)

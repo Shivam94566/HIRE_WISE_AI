@@ -16,9 +16,23 @@ class Config:
     DEBUG = ENV == "development"
 
     # Database Settings
-    SQLALCHEMY_DATABASE_URI = "sqlite:///database/hirwise.db"
-    # Ensure parent directory of DB exists
-    (BASE_DIR / "database").mkdir(parents=True, exist_ok=True)
+    db_url = os.environ.get("DATABASE_URL")
+
+    print("DATABASE_URL from env:", os.environ.get("DATABASE_URL"))
+    print("Final DB URI before processing:", db_url)
+
+    if db_url:
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+        print("Final DB URI after processing:", db_url)
+        SQLALCHEMY_DATABASE_URI = db_url
+    else:
+        print("DATABASE_URL not found. Falling back to SQLite.")
+
+        db_abs_path = BASE_DIR / "database" / "hirewise.db"
+        db_abs_path.parent.mkdir(parents=True, exist_ok=True)
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_abs_path.resolve().as_posix()}"
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

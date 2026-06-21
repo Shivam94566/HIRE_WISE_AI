@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_FILE = BASE_DIR / "database" / "hirwise.db"
+DB_FILE = BASE_DIR / "database" / "hirewise.db"
 UPLOAD_FILE = BASE_DIR / "uploads" / "user_1_resume_Shruti_resume.pdf"
 
 class E2EVerifier:

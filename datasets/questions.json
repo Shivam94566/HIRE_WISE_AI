@@ -272,6 +272,60 @@
       "skill": "DBMS",
       "subtopic": "Concurrency Control",
       "prerequisite_skills": ["DBMS"]
+    },
+    {
+      "text": "Explain the process of how a web browser loads a webpage, starting from URL entry to the final render.",
+      "category": "Technical",
+      "difficulty": "Medium",
+      "expected_keywords": ["dns", "tcp", "http", "rendering", "html", "css", "javascript", "dom", "viewport"],
+      "skill": "System Design",
+      "subtopic": "Web Request Flow",
+      "prerequisite_skills": ["Network Protocols", "HTTP"]
+    },
+    {
+      "text": "How would you design a URL shortening service like TinyURL? Discuss database schema and scaling strategies.",
+      "category": "Technical",
+      "difficulty": "Hard",
+      "expected_keywords": ["url shortening", "hashing", "hash collision", "database schema", "scaling", "load balancing", "availability", "short_code", "redirect"],
+      "skill": "System Design",
+      "subtopic": "URL Shortener",
+      "prerequisite_skills": ["Scalability", "Database Design"]
+    },
+    {
+      "text": "Design a distributed cache system like Redis or Memcached. How would you handle cache eviction and data consistency?",
+      "category": "Technical",
+      "difficulty": "Hard",
+      "expected_keywords": ["distributed cache", "cache eviction", "lru", "consistency", "replication", "partitioning", "high availability", "fault tolerance", "read/write operations"],
+      "skill": "System Design",
+      "subtopic": "Distributed Cache",
+      "prerequisite_skills": ["Distributed Systems", "Concurrency"]
+    },
+    {
+      "text": "How do you design a notification system for a social media platform? Discuss push notifications, email, and in-app notifications.",
+      "category": "Technical",
+      "difficulty": "Hard",
+      "expected_keywords": ["notification system", "real-time", "websocket", "message queue", "scalability", "fan-out", "fan-in", "database design", "push notification"],
+      "skill": "System Design",
+      "subtopic": "Notification System",
+      "prerequisite_skills": ["Scalability", "Real-time Systems"]
+    },
+    {
+      "text": "Explain the architecture of the TCP/IP model and compare it with the OSI model. Where do they differ most significantly?",
+      "category": "Technical",
+      "difficulty": "Hard",
+      "expected_keywords": ["tcp/ip", "osi", "layers", "network stack", "encapsulation", "decapsulation", "transport layer", "internet layer", "comparison"],
+      "skill": "System Design",
+      "subtopic": "Network Models",
+      "prerequisite_skills": ["Networking", "OSI Model"]
+    },
+    {
+      "text": "Describe the CAP theorem and explain its implications for distributed database design.",
+      "category": "Technical",
+      "difficulty": "Hard",
+      "expected_keywords": ["cap theorem", "consistency", "availability", "partition tolerance", "distributed systems", "trade-offs", "noSQL"],
+      "skill": "System Design",
+      "subtopic": "Distributed Systems",
+      "prerequisite_skills": ["Distributed Systems", "Scalability"]
     }
   ]
 }

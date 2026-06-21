@@ -76,8 +76,6 @@ class MentorService:
         if GROQ_AVAILABLE and self.groq_key:
             try:
                 self.client = Groq(api_key=self.groq_key)
-                # Verify Groq Integration: Send a test prompt
-                # Simply mark as initialized if key exists
                 self.groq_initialized = True
                 print("[INFO] Groq initialized successfully.")
             except Exception as e:

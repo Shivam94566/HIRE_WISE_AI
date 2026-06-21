@@ -1,15 +1,7 @@
 import os
 import re
 from config import Config
-
-# Try to import whisper and speech_recognition dynamically
-WHISPER_INSTALLED = False
-try:
-    import whisper
-    import torch
-    WHISPER_INSTALLED = True
-except ImportError:
-    print("whisper/torch not installed. speech_recognition or Web Speech API fallback will be used.")
+from services.transcription_service import transcribe_audio
 
 SR_INSTALLED = False
 try:
@@ -22,44 +14,27 @@ class WhisperService:
     def __init__(self):
         self.model = None
         self.model_name = Config.WHISPER_MODEL_NAME
-    def _load_model(self):
-        """Lazy-load Whisper model to prevent slow application startups."""
-        if self.model is None and WHISPER_INSTALLED:
-            try:
-                print(f"Loading local Whisper model '{self.model_name}'...")
-                # Use CPU if CUDA is not available or if torch failed
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                self.model = whisper.load_model(self.model_name, device=device)
-                print("Whisper model loaded successfully.")
-            except Exception as e:
-                print(f"Error loading Whisper model: {e}")
-                self.model = None
 
     def transcribe(self, audio_path, browser_transcript_fallback=None):
         """
         Transcribes the given audio file using:
-        1. Local Whisper model (if available)
-        2. Google Web Speech API via SpeechRecognition (if Whisper is not available)
+        1. Groq Whisper Cloud API (via transcription_service)
+        2. Google Web Speech API via SpeechRecognition (as online fallback)
         3. Browser-provided transcript (fallback passed from client)
         """
-        # Clean paths for Windows
         audio_path = str(audio_path)
         
         if not os.path.exists(audio_path):
             print(f"Audio file not found: {audio_path}")
             return browser_transcript_fallback or "Audio file missing."
             
-        # 1. Try Local Whisper
-        if WHISPER_INSTALLED:
-            self._load_model()
-            if self.model is not None:
-                try:
-                    result = self.model.transcribe(audio_path)
-                    text = result.get("text", "").strip()
-                    if text:
-                        return text
-                except Exception as e:
-                    print(f"Whisper transcription failed: {e}. Trying secondary methods.")
+        # 1. Try Groq Whisper Cloud transcription
+        try:
+            text = transcribe_audio(audio_path)
+            if text:
+                return text
+        except Exception as e:
+            print(f"Groq Cloud transcription failed: {e}. Trying secondary methods.")
                     
         # 2. Try SpeechRecognition (Google API - online & lightweight)
         if SR_INSTALLED:
@@ -68,9 +43,10 @@ class WhisperService:
                 with sr.AudioFile(audio_path) as source:
                     audio_data = r.record(source)
                 text = r.recognize_google(audio_data)
-                return text.strip()
+                if text:
+                    return text.strip()
             except Exception as e:
-                print(f"Google speech recognition failed: {e}. Using browser fallback.")
+                print(f"Google speech recognition fallback failed: {e}. Using browser fallback.")
                 
         # 3. Fall back to frontend browser transcript if present
         if browser_transcript_fallback:
