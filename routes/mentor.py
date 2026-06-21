@@ -17,7 +17,12 @@ mentor_bp = Blueprint('mentor', __name__)
 
 # Instantiate Services
 mentor_service = MentorService()
-whisper_service = WhisperService()
+try:
+    from services.whisper_service import WhisperService
+    whisper_service = WhisperService()
+except Exception as e:
+    print(f"[WARNING] WhisperService not available: {e}")
+    whisper_service = None
 resume_service = ResumeService()
 
 @mentor_bp.route('/mentor')
@@ -278,6 +283,8 @@ def voice_transcribe():
         audio_file.save(str(dest_path))
         
         # Transcribe using Whisper
+        if whisper_service is None:
+            return jsonify({"success": False, "error": "Voice feature not available on this server."}), 503
         transcript_text = whisper_service.transcribe(dest_path)
         
         # Clean up temp file
