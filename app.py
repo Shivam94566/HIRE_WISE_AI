@@ -124,7 +124,11 @@ def create_app():
             
         return render_template('base.html', error_title="Server Error (500)", 
                                error_msg="An unexpected error occurred. Please try again or check logs."), 500
-                               
+    @app.route("/debug-db")
+    def debug_db():
+        return {
+            "db": app.config["SQLALCHEMY_DATABASE_URI"]
+        }              
     return app
 
 app = create_app()
