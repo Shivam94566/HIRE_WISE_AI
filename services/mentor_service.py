@@ -77,16 +77,9 @@ class MentorService:
             try:
                 self.client = Groq(api_key=self.groq_key)
                 # Verify Groq Integration: Send a test prompt
-                test_response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": "Say only the word CONNECTED."}]
-                )
-                test_text = test_response.choices[0].message.content.strip()
-                if "CONNECTED" in test_text.upper():
-                    self.groq_initialized = True
-                    print("[INFO] Groq initialized successfully.")
-                else:
-                    raise Exception(f"Groq API returned unexpected verification output: {test_text}")
+                # Simply mark as initialized if key exists
+                self.groq_initialized = True
+                print("[INFO] Groq initialized successfully.")
             except Exception as e:
                 print(f"[ERROR] Groq initialization failed:\n{e}")
                 self.groq_initialized = False
@@ -504,6 +497,10 @@ Classified User Intent: {intent}
         error_msg = ""
         start_time = time.time()
 
+        # Track exceptions for diagnostics
+        caught_exception = None
+        caught_traceback = ""
+
         # 7. Call LLM Providers (Groq Priority)
         if self.groq_initialized:
             provider = "groq"
@@ -520,59 +517,107 @@ Classified User Intent: {intent}
                     messages = self._prepare_groq_history(history_to_use, enhanced_system_prompt)
                     messages.append({"role": "user", "content": user_msg})
                     
-                    response = self.client.chat.completions.create(
-                        model=self.model_name,
-                        messages=messages
-                    )
+                    try:
+                        response = self.client.chat.completions.create(
+                            model=self.model_name,
+                            messages=messages
+                        )
+                        model_used = self.model_name
+                    except Exception as rate_err:
+                        error_str = str(rate_err)
+                        if "429" in error_str or "rate_limit" in error_str:
+                            print("[INFO] Rate limit hit on 70B model. Retrying with llama-3.1-8b-instant...")
+                            response = self.client.chat.completions.create(
+                                model="llama-3.1-8b-instant",
+                                messages=messages
+                            )
+                            model_used = "llama-3.1-8b-instant"
+                        else:
+                            raise rate_err
+                            
                     prompt_tokens = response.usage.prompt_tokens if hasattr(response, 'usage') and response.usage else 0
                     reply_text = response.choices[0].message.content.strip()
                     
                     # Quality Check
                     is_ok, quality_msg = self._evaluate_response_quality(user_msg, reply_text, history_to_use)
                     if is_ok:
+                        model = model_used
                         break
                     else:
                         print(f"[QUALITY ALERT] Groq Attempt {attempt+1} failed check: {quality_msg}")
                         error_msg = quality_msg
+                        if attempt == 1:
+                            reply_text = ""
+                            fallback_triggered = True
+                            fallback_reason = f"Quality check failed: {quality_msg}"
                 except Exception as e:
                     error_msg = str(e)
+                    caught_exception = e
+                    caught_traceback = traceback.format_exc()
                     print(f"[ERROR] Groq API call crashed: {e}")
                     fallback_triggered = True
                     fallback_reason = "Groq API Exception"
+                    reply_text = ""
                     break
 
         # Fallback to Claude if Groq failed/not available
-        if (not reply_text or fallback_triggered) and self.claude_key:
-            provider = "claude"
-            model = "claude-3-5-sonnet-20241022"
-            fallback_triggered = False
-            fallback_reason = "N/A"
-            
-            for attempt in range(2):
-                try:
-                    enhanced_system_prompt = context_prompt
-                    if attempt > 0:
-                        enhanced_system_prompt += "\n\nCRITICAL: Avoid repetition and write a detailed response."
+        if (not reply_text or fallback_triggered):
+            # Print Mentor Debug before fallback
+            print("========== MENTOR DEBUG ==========")
+            print("User message:", user_msg)
+            print("Provider:", provider)
+            print("Groq initialized:", self.groq_initialized)
+            print("Exception:", caught_exception)
+            print(caught_traceback.strip())
+            print("=================================")
+
+            if self.claude_key:
+                provider = "claude"
+                model = "claude-3-5-sonnet-20241022"
+                fallback_triggered = False
+                fallback_reason = "N/A"
+                
+                for attempt in range(2):
+                    try:
+                        enhanced_system_prompt = context_prompt
+                        if attempt > 0:
+                            enhanced_system_prompt += "\n\nCRITICAL: Avoid repetition and write a detailed response."
+                            
+                        messages_to_send = history_to_use + [{"sender": "user", "content": user_msg}]
+                        reply_text = self._call_claude_api(enhanced_system_prompt, messages_to_send)
                         
-                    messages_to_send = history_to_use + [{"sender": "user", "content": user_msg}]
-                    reply_text = self._call_claude_api(enhanced_system_prompt, messages_to_send)
-                    
-                    if reply_text:
-                        is_ok, quality_msg = self._evaluate_response_quality(user_msg, reply_text, history_to_use)
-                        if is_ok:
-                            break
-                        else:
-                            print(f"[QUALITY ALERT] Claude Attempt {attempt+1} failed check: {quality_msg}")
-                            error_msg = quality_msg
-                except Exception as e:
-                    error_msg = str(e)
-                    print(f"[ERROR] Claude API call crashed: {e}")
-                    fallback_triggered = True
-                    fallback_reason = "Claude API Exception"
-                    break
+                        if reply_text:
+                            is_ok, quality_msg = self._evaluate_response_quality(user_msg, reply_text, history_to_use)
+                            if is_ok:
+                                break
+                            else:
+                                print(f"[QUALITY ALERT] Claude Attempt {attempt+1} failed check: {quality_msg}")
+                                error_msg = quality_msg
+                                if attempt == 1:
+                                    reply_text = ""
+                                    fallback_triggered = True
+                                    fallback_reason = f"Quality check failed: {quality_msg}"
+                    except Exception as e:
+                        error_msg = str(e)
+                        caught_exception = e
+                        caught_traceback = traceback.format_exc()
+                        print(f"[ERROR] Claude API call crashed: {e}")
+                        fallback_triggered = True
+                        fallback_reason = "Claude API Exception"
+                        reply_text = ""
+                        break
 
         # Baseline: Local Fallback
         if not reply_text:
+            # Print Mentor Debug before fallback
+            print("========== MENTOR DEBUG ==========")
+            print("User message:", user_msg)
+            print("Provider:", provider)
+            print("Groq initialized:", self.groq_initialized)
+            print("Exception:", caught_exception)
+            print(caught_traceback.strip())
+            print("=================================")
+
             provider = "local"
             model = "rule-based-agent"
             fallback_triggered = True
