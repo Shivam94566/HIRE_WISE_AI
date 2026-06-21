@@ -1,0 +1,153 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Interview logs - HireWise Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-gradient-primary">Interview Monitoring System</h2>
+            <p class="text-secondary small">Review, filter, and inspect completed placement assessments and eye contact gaze tracking metrics</p>
+        </div>
+    </div>
+
+    <!-- Filters and Search panel -->
+    <div class="glass-card mb-4 p-3">
+        <form action="{{ url_for('admin.interviews_list') }}" method="GET" class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <input type="text" 
+                       class="form-control form-control-custom" 
+                       id="user" 
+                       name="user" 
+                       value="{{ search_user }}" 
+                       placeholder="Filter by candidate name...">
+            </div>
+            <div class="col-md-3">
+                <input type="text" 
+                       class="form-control form-control-custom" 
+                       id="company" 
+                       name="company" 
+                       value="{{ search_company }}" 
+                       placeholder="Filter by company name...">
+            </div>
+            <div class="col-md-2">
+                <select class="form-select bg-dark text-white border-0 py-2.5 px-3" name="type" style="border-radius: 10px; border: 1px solid var(--border-color) !important;">
+                    <option value="">All Categories</option>
+                    <option value="HR" {{ 'selected' if filter_type == 'HR' else '' }}>HR Interview</option>
+                    <option value="Technical" {{ 'selected' if filter_type == 'Technical' else '' }}>Technical Interview</option>
+                    <option value="Mixed" {{ 'selected' if filter_type == 'Mixed' else '' }}>Mixed Assessment</option>
+                    <option value="Company" {{ 'selected' if filter_type == 'Company' else '' }}>Company prep</option>
+                    <option value="Resume" {{ 'selected' if filter_type == 'Resume' else '' }}>Resume prep</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select bg-dark text-white border-0 py-2.5 px-3" name="score" style="border-radius: 10px; border: 1px solid var(--border-color) !important;">
+                    <option value="">All Scores</option>
+                    <option value="high" {{ 'selected' if filter_score == 'high' else '' }}>High (>=90%)</option>
+                    <option value="average" {{ 'selected' if filter_score == 'average' else '' }}>Average (70%-89%)</option>
+                    <option value="low" {{ 'selected' if filter_score == 'low' else '' }}>Low (<70%)</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100 py-2.5 fw-bold" style="border-radius: 10px;">
+                    Apply
+                </button>
+            </div>
+            <div class="col-md-1">
+                <a href="{{ url_for('admin.interviews_list') }}" class="btn btn-outline-secondary w-100 py-2.5 fw-semibold" style="border-radius: 10px;">
+                    Clear
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Interviews log Grid/Table -->
+    <div class="glass-card p-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0" style="background-color: transparent !important;">
+                <thead>
+                    <tr class="text-muted small">
+                        <th>Session ID</th>
+                        <th>User Name</th>
+                        <th>Category</th>
+                        <th>Target Company</th>
+                        <th>Role Applied</th>
+                        <th class="text-center">Duration</th>
+                        <th class="text-center">Overall Score</th>
+                        <th>Interview Date</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if pagination.items %}
+                        {% for i in pagination.items %}
+                        <tr>
+                            <td class="fw-bold">#{{ i.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if i.user.profile_photo and i.user.profile_photo != 'default_profile.png' %}
+                                        <img src="{{ url_for('serve_upload', filename=i.user.profile_photo) }}" alt="Avatar" class="rounded-circle" style="width: 25px; height: 25px; object-fit: cover;">
+                                    {% else %}
+                                        <i class="bi bi-person-circle text-secondary fs-5"></i>
+                                    {% endif %}
+                                    <span class="fw-semibold">{{ i.user.full_name or i.user.username if i.user else 'Deleted User' }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary-light text-primary">{{ i.interview_type }}</span>
+                            </td>
+                            <td class="small">{{ i.company_name or 'General Practice' }}</td>
+                            <td class="small">{{ i.role_applied or 'Software Engineer' }}</td>
+                            <td class="text-center small">{{ (i.duration/60)|round(1) }} min</td>
+                            <td class="text-center fw-bold text-success">{{ i.overall_score }}%</td>
+                            <td class="small text-secondary">{{ i.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('admin.interview_detail', session_id=i.id) }}" class="btn btn-sm btn-outline-success" style="border-radius: 8px;">
+                                    <i class="bi bi-eye-fill"></i> View Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center p-5 text-secondary">
+                                <i class="bi bi-info-circle display-4 mb-3 d-block"></i>
+                                No completed interview sessions matching the filter criteria were found.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+        <nav class="d-flex justify-content-center mt-4">
+            <ul class="pagination pagination-sm gap-1 mb-0">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev else '' }}">
+                    <a class="page-link bg-dark text-white border-0" href="{{ url_for('admin.interviews_list', page=pagination.prev_num, user=search_user, company=search_company, score=filter_score, type=filter_type) }}" style="border-radius: 6px;">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+                            <a class="page-link border-0 {{ 'bg-primary text-white' if page_num == pagination.page else 'bg-dark text-white' }}" href="{{ url_for('admin.interviews_list', page=page_num, user=search_user, company=search_company, score=filter_score, type=filter_type) }}" style="border-radius: 6px;">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link bg-transparent border-0 text-muted">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if not pagination.has_next else '' }}">
+                    <a class="page-link bg-dark text-white border-0" href="{{ url_for('admin.interviews_list', page=pagination.next_num, user=search_user, company=search_company, score=filter_score, type=filter_type) }}" style="border-radius: 6px;">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
