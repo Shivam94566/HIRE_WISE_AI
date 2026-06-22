@@ -120,6 +120,7 @@
             {% set comp_map = session.get_competency_map() %}
             {% if comp_map %}
                 {% for skill_name, data in comp_map.items() %}
+                    {% if skill_name not in ['resume_inflation_analysis', 'multimodal_convergence_telemetry', 'multimodal_convergence_analysis'] %}
                     <div class="col-md-4">
                         <div class="p-3 rounded border h-100 bg-white bg-opacity-10" style="border-color: var(--border-color) !important;">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -158,6 +159,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 {% endfor %}
             {% else %}
                 <div class="col-12">

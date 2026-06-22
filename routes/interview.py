@@ -407,12 +407,26 @@ def submit_answer():
         
         # Update skill state if in adaptive mode
         if interview_sess.experiment_mode != 'fixed' and question and question.skill:
+            db.session.add(new_response)
+            db.session.flush()
+            
             from services.adaptive_engine import AdaptiveEngine
             adaptive_engine = AdaptiveEngine()
+            
+            confidence_data = {
+                "eye_contact_score": eye_contact_score,
+                "filler_count": speech_analysis["filler_count"],
+                "speech_confidence_score": eval_result.get("confidence", 8.0) * 10.0,
+                "attention_duration_score": attention_duration_score,
+                "head_stability_score": head_stability_score
+            }
+            
             adaptive_engine.update_skill_state(
                 session_id=session_id,
                 skill_name=question.skill,
-                score=new_response.answer_score
+                score=new_response.answer_score,
+                response_id=new_response.id,
+                confidence_data=confidence_data
             )
         
         # Check dynamic AI follow up (only for fixed mode)

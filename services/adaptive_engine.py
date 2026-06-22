@@ -1,4 +1,5 @@
 import json
+import re
 import random
 from datetime import datetime
 from database.connection import db
@@ -60,6 +61,164 @@ class AdaptiveEngine:
         self.skills = ["Python", "DSA", "DBMS"]
         self.groq_service = GroqService()
         self.skill_graph = SkillGraph()
+
+    def parse_claimed_skill_level(self, resume, skill_name):
+        """
+        Parses candidate resume text and extracts their claimed level for a given skill.
+        If no explicit level is found, checks general resume characteristics to default
+        to 'Expert' or 'Intermediate'.
+        """
+        skills_text = (resume.skills_extracted or "").lower()
+        parsed_text = (resume.parsed_text or "").lower()
+        skill_lower = skill_name.lower()
+        
+        # Check if the skill is mentioned in either place
+        if skill_lower not in skills_text and skill_lower not in parsed_text:
+            return None
+            
+        # Match explicit levels near the skill name
+        patterns = [
+            rf"{re.escape(skill_lower)}\s*[\-\:\(]*\s*(expert|advanced|proficient|senior|lead|intermediate|medium|beginner|novice|basic|entry)",
+            rf"(expert|advanced|proficient|senior|lead|intermediate|medium|beginner|novice|basic|entry)\s*(?:in|with|level)?\s*{re.escape(skill_lower)}"
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, skills_text, re.IGNORECASE)
+            if match:
+                level_str = match.group(1).lower()
+                if level_str in ["expert", "advanced", "proficient", "senior", "lead"]:
+                    return "Expert"
+                elif level_str in ["intermediate", "medium"]:
+                    return "Intermediate"
+                elif level_str in ["beginner", "novice", "basic", "entry"]:
+                    return "Beginner"
+            
+            match = re.search(pattern, parsed_text, re.IGNORECASE)
+            if match:
+                level_str = match.group(1).lower()
+                if level_str in ["expert", "advanced", "proficient", "senior", "lead"]:
+                    return "Expert"
+                elif level_str in ["intermediate", "medium"]:
+                    return "Intermediate"
+                elif level_str in ["beginner", "novice", "basic", "entry"]:
+                    return "Beginner"
+                    
+        if skill_lower in skills_text:
+            has_senior_indicators = any(kw in parsed_text for kw in ["senior", "lead", "expert", "advanced", "proficient"])
+            if has_senior_indicators or (resume.ats_score and resume.ats_score >= 75):
+                return "Expert"
+            else:
+                return "Intermediate"
+                
+        if skill_lower in parsed_text:
+            return "Intermediate"
+            
+        return None
+
+    def _add_resume_inflation_analysis(self, session, final_map):
+        """
+        Adds resume inflation analysis block directly to the competency map dict.
+        """
+        from models.resume_upload import ResumeUpload
+        
+        inflation_analysis = {
+            "resume_inflation_score": 0.0,
+            "skills_mismatch": [],
+            "explainability_log": []
+        }
+        
+        if not session:
+            final_map["resume_inflation_analysis"] = inflation_analysis
+            return final_map
+            
+        resume = ResumeUpload.query.filter_by(user_id=session.user_id).order_by(ResumeUpload.created_at.desc()).first()
+        
+        if resume:
+            skills_mismatch = []
+            explain_log = []
+            
+            level_values = {"Beginner": 1, "Intermediate": 2, "Advanced": 3, "Expert": 3}
+            evaluated_skills = [k for k in final_map.keys() if k not in ("resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis")]
+            
+            total_mismatch_pct = 0.0
+            matched_skills_count = 0
+            
+            explain_log.append(f"Starting Resume Inflation analysis for user ID {session.user_id} using resume ID {resume.id}.")
+            
+            for skill in evaluated_skills:
+                skill_meta = final_map[skill]
+                est_score = skill_meta.get("score", 50.0)
+                
+                if est_score < 50.0:
+                    est_level = "Beginner"
+                elif est_score < 80.0:
+                    est_level = "Intermediate"
+                else:
+                    est_level = "Advanced"
+                
+                claimed_level = self.parse_claimed_skill_level(resume, skill)
+                
+                if claimed_level:
+                    matched_skills_count += 1
+                    c_val = level_values.get(claimed_level, 2)
+                    e_val = level_values.get(est_level, 2)
+                    
+                    if c_val > e_val:
+                        mismatch_pct = ((c_val - e_val) / 2.0) * 100.0
+                        justification = (
+                            f"Candidate claimed {claimed_level} level in {skill} on their resume, "
+                            f"but their estimated skill score of {est_score:.1f} corresponds to {est_level}, "
+                            f"indicating a {mismatch_pct:.1f}% inflation mismatch."
+                        )
+                    else:
+                        mismatch_pct = 0.0
+                        justification = (
+                            f"Candidate claimed {claimed_level} level in {skill} on their resume, "
+                            f"and their estimated skill score of {est_score:.1f} corresponds to {est_level}. "
+                            f"No inflation detected."
+                        )
+                    
+                    total_mismatch_pct += mismatch_pct
+                    
+                    skills_mismatch.append({
+                        "skill_name": skill,
+                        "claimed_level": claimed_level,
+                        "estimated_level": est_level,
+                        "estimated_score": round(est_score, 1),
+                        "mismatch_percentage": round(mismatch_pct, 1),
+                        "justification": justification
+                    })
+                    
+                    explain_log.append(
+                        f"Skill '{skill}': Claimed={claimed_level}, Estimated={est_level} (score: {est_score:.1f}). "
+                        f"Mismatch={mismatch_pct:.1f}%. Justification: {justification}"
+                    )
+                else:
+                    explain_log.append(f"Skill '{skill}' was not found/claimed on the candidate's resume.")
+            
+            if matched_skills_count > 0:
+                inflation_score = total_mismatch_pct / matched_skills_count
+                explain_log.append(
+                    f"Calculated overall Resume Inflation Score: {inflation_score:.1f}/100 "
+                    f"based on {matched_skills_count} claimed skills."
+                )
+            else:
+                inflation_score = 0.0
+                explain_log.append("No matching resume claims found for evaluated skills. Inflation score defaults to 0.0.")
+                
+            inflation_analysis["resume_inflation_score"] = round(inflation_score, 1)
+            inflation_analysis["skills_mismatch"] = skills_mismatch
+            inflation_analysis["explainability_log"] = explain_log
+        else:
+            inflation_analysis["explainability_log"].append("No resume uploaded for this user. Inflation score defaults to 0.0.")
+            
+        final_map["resume_inflation_analysis"] = inflation_analysis
+        
+        print(f"[ EXPLAINABILITY LOG ] Resume Inflation Analysis for session {session.id if session else 'None'}:")
+        for log in inflation_analysis["explainability_log"]:
+            print(f"  - {log}")
+            
+        return final_map
 
     def get_skills_for_session(self, session):
         """
@@ -308,7 +467,7 @@ class AdaptiveEngine:
         return propagation_records
 
     # --- Core Route-Faced Signatures ---
-    def update_skill_state(self, session_id, skill_name, score, response_id=None):
+    def update_skill_state(self, session_id, skill_name, score, response_id=None, confidence_data=None):
         """
         Updates the candidate's estimated skill score using Bayesian state updates
         and propagates changes across the Dynamic Skill Graph.
@@ -360,7 +519,11 @@ class AdaptiveEngine:
         last_q = None
         
         # Look for the last response in this session to identify the subtopic
-        last_resp = Response.query.filter_by(session_id=session_id).order_by(Response.created_at.desc()).first()
+        if response_id:
+            last_resp = Response.query.get(response_id)
+        else:
+            last_resp = Response.query.filter_by(session_id=session_id).order_by(Response.created_at.desc()).first()
+            
         if last_resp and last_resp.question_id:
             last_q = Question.query.get(last_resp.question_id)
             if last_q and last_q.skill == skill_name and last_q.subtopic:
@@ -396,14 +559,181 @@ class AdaptiveEngine:
             
         v = 100.0 * duration_factor
         
+        # Compute confidence signal components
+        if confidence_data is None:
+            confidence_data = {}
+            if last_resp:
+                confidence_data = {
+                    "eye_contact_score": getattr(last_resp, "eye_contact_score", 80.0),
+                    "filler_count": getattr(last_resp, "filler_count", 0),
+                    "speech_confidence_score": 80.0,
+                    "attention_duration_score": getattr(last_resp, "attention_duration_score", 80.0),
+                    "head_stability_score": getattr(last_resp, "head_stability_score", 80.0)
+                }
+            else:
+                confidence_data = {
+                    "eye_contact_score": 80.0,
+                    "filler_count": 0,
+                    "speech_confidence_score": 80.0,
+                    "attention_duration_score": 80.0,
+                    "head_stability_score": 80.0
+                }
+                
+        eye_contact = confidence_data.get("eye_contact_score")
+        if eye_contact is None: eye_contact = 80.0
+        
+        filler_count = confidence_data.get("filler_count")
+        if filler_count is None: filler_count = 0
+        
+        speech_confidence = confidence_data.get("speech_confidence_score")
+        if speech_confidence is None: speech_confidence = 80.0
+        
+        attention_duration = confidence_data.get("attention_duration_score")
+        if attention_duration is None: attention_duration = 80.0
+        
+        head_stability = confidence_data.get("head_stability_score")
+        if head_stability is None: head_stability = 80.0
+        
+        filler_word_score = max(0.0, 100.0 - (filler_count * 10.0))
+        
+        confidence_signal = (
+            0.20 * eye_contact +
+            0.20 * filler_word_score +
+            0.30 * speech_confidence +
+            0.15 * attention_duration +
+            0.15 * head_stability
+        )
+        
         # 4. Bayesian Update Formula
         old_var = old_unc ** 2
         new_var = 1.0 / ((1.0 / old_var) + (1.0 / v))
-        new_unc = (new_var) ** 0.5
-        new_unc = max(2.0, min(new_unc, 15.0))
+        new_unc_unadjusted = (new_var) ** 0.5
         
+        # Adjust posterior uncertainty based on composite confidence signal
+        conf_factor = confidence_signal / 100.0
+        modifier = 1.5 - conf_factor  # ranges [0.5, 1.5]
+        new_unc_adjusted = new_unc_unadjusted * modifier
+        new_unc = max(2.0, min(new_unc_adjusted, 15.0))
+        
+        # Preserve existing answer correctness scoring as the primary signal
         new_score = new_var * ((previous_score / old_var) + (score / v))
         new_score = max(0.0, min(100.0, new_score))
+        
+        # Explainability reason
+        reason_for_adjustment = (
+            f"Confidence signal of {confidence_signal:.1f}% was used to scale uncertainty convergence. "
+            f"Since confidence is {'high' if confidence_signal >= 75 else 'low' if confidence_signal < 50 else 'moderate'}, "
+            f"convergence of the uncertainty standard error (sigma) was {'accelerated' if confidence_signal >= 75 else 'decelerated' if confidence_signal < 50 else 'maintained'} by a factor of {modifier:.2f}x. "
+            f"Correctness remains the primary driver for theta competency score."
+        )
+        
+        # Print explainability log
+        print(f"[ EXPLAINABILITY LOG ] update_skill_state details for skill '{target_node}':")
+        print(f"  - Original Theta: {previous_score:.2f}")
+        print(f"  - Original Sigma: {old_unc:.2f}")
+        print(f"  - Confidence Signal: {confidence_signal:.1f}% (eye={eye_contact:.1f}, fillers={filler_word_score:.1f}, speech={speech_confidence:.1f}, attention={attention_duration:.1f}, stability={head_stability:.1f})")
+        print(f"  - Adjusted Theta: {new_score:.2f}")
+        print(f"  - Adjusted Sigma: {new_unc:.2f} (modifier={modifier:.2f}x)")
+        print(f"  - Reason: {reason_for_adjustment}")
+        
+        # Store turn entry in competency map
+        try:
+            c_map = self._get_competency_map_metadata(session_id)
+            telemetry_list = c_map.get("multimodal_convergence_telemetry", [])
+            
+            turn_number = len(telemetry_list) + 1
+            
+            turn_entry = {
+                "turn_number": turn_number,
+                "sigma_before": round(old_unc, 4),
+                "sigma_after": round(new_unc, 4),
+                "sigma_change": round(new_unc - old_unc, 4),
+                "confidence_signal": round(confidence_signal, 4),
+                "eye_contact_score": round(eye_contact, 4),
+                "filler_count": int(filler_count),
+                "speech_confidence": round(speech_confidence, 4),
+                "attention_duration": round(attention_duration, 4),
+                "head_stability": round(head_stability, 4)
+            }
+            
+            telemetry_list.append(turn_entry)
+            if len(telemetry_list) > 15:
+                telemetry_list = telemetry_list[-15:]
+                
+            c_map["multimodal_convergence_telemetry"] = telemetry_list
+            session.competency_map = json.dumps(c_map)
+        except Exception as e_telemetry:
+            print(f"[ WARNING ] Failed to save turn telemetry to competency_map: {e_telemetry}")
+
+        # Update the entry in decision_log for this session to store confidence telemetry
+        try:
+            if session.decision_log:
+                decision_log = json.loads(session.decision_log)
+                current_idx = session.current_index
+                if 0 <= current_idx < len(decision_log):
+                    entry = decision_log[current_idx]
+                    entry.update({
+                        "original_theta": round(previous_score, 2),
+                        "original_sigma": round(old_unc, 2),
+                        "confidence_signal": round(confidence_signal, 2),
+                        "adjusted_theta": round(new_score, 1),
+                        "adjusted_sigma": round(new_unc, 2),
+                        "adjustment_reason": reason_for_adjustment,
+                        "eye_contact_component": round(eye_contact, 1),
+                        "filler_words_component": round(filler_word_score, 1),
+                        "speech_confidence_component": round(speech_confidence, 1),
+                        "attention_duration_component": round(attention_duration, 1),
+                        "head_stability_component": round(head_stability, 1)
+                    })
+                    session.decision_log = json.dumps(decision_log)
+        except Exception as e_log:
+            print(f"[ WARNING ] Failed to append confidence telemetry to decision_log: {e_log}")
+            
+        # Write to separate research log file exports/bayesian_experiment_log.json
+        try:
+            from pathlib import Path
+            base_dir = Path(__file__).resolve().parent.parent
+            exports_dir = base_dir / "exports"
+            exports_dir.mkdir(exist_ok=True)
+            
+            log_file = exports_dir / "bayesian_experiment_log.json"
+            
+            log_record = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "session_id": session_id,
+                "skill_name": target_node,
+                "correctness_score": float(score),
+                "original_theta": float(previous_score),
+                "original_sigma": float(old_unc),
+                "confidence_signal": float(confidence_signal),
+                "adjusted_theta": float(new_score),
+                "adjusted_sigma": float(new_unc),
+                "uncertainty_modifier": float(modifier),
+                "eye_contact": float(eye_contact),
+                "filler_count": int(filler_count),
+                "filler_word_score": float(filler_word_score),
+                "speech_confidence": float(speech_confidence),
+                "attention_duration": float(attention_duration),
+                "head_stability": float(head_stability),
+                "reason": reason_for_adjustment
+            }
+            
+            existing_records = []
+            if log_file.exists():
+                try:
+                    with open(log_file, 'r', encoding='utf-8') as lf:
+                        existing_records = json.load(lf)
+                except Exception:
+                    existing_records = []
+                    
+            existing_records.append(log_record)
+            
+            with open(log_file, 'w', encoding='utf-8') as lf:
+                json.dump(existing_records, lf, indent=2)
+                
+            print(f"[ SUCCESS ] Saved research metrics to {log_file}")
+        except Exception as e_file:
+            print(f"[ WARNING ] Failed to save research log file: {e_file}")
         
         state.score = round(new_score, 1)
         state.updated_at = datetime.utcnow()
@@ -463,7 +793,11 @@ class AdaptiveEngine:
             v_root = 150.0  # higher measurement variance for root node direct update
             old_r_var = old_r_unc ** 2
             new_r_var = 1.0 / ((1.0 / old_r_var) + (1.0 / v_root))
-            new_r_unc = max(2.0, min((new_r_var) ** 0.5, 15.0))
+            new_r_unc_unadjusted = (new_r_var) ** 0.5
+            
+            # Apply the same confidence modifier to root skill uncertainty as well
+            new_r_unc_adjusted = new_r_unc_unadjusted * modifier
+            new_r_unc = max(2.0, min(new_r_unc_adjusted, 15.0))
             new_r_score = new_r_var * ((old_r_score / old_r_var) + (score / v_root))
             
             root_state.score = round(max(0.0, min(100.0, new_r_score)), 1)
@@ -830,6 +1164,48 @@ class AdaptiveEngine:
         Classifies candidate competency boundaries at the end of the session,
         incorporating uncertainty error and convergence detection if enabled.
         """
+        # Load convergence telemetry
+        c_map_raw = self._get_competency_map_metadata(session_id)
+        telemetry_list = c_map_raw.get("multimodal_convergence_telemetry", [])
+        
+        stabilization_turn = None
+        for turn in telemetry_list:
+            if abs(turn.get("sigma_change", 0.0)) <= 0.15:
+                stabilization_turn = turn.get("turn_number")
+                break
+        if stabilization_turn is None:
+            stabilization_turn = len(telemetry_list) if telemetry_list else 5
+            
+        if telemetry_list:
+            total_reduction = sum(turn.get("sigma_before", 0.0) - turn.get("sigma_after", 0.0) for turn in telemetry_list)
+            avg_reduction = round(total_reduction / len(telemetry_list), 4)
+            avg_conf = sum(turn.get("confidence_signal", 0.0) for turn in telemetry_list) / len(telemetry_list)
+        else:
+            avg_reduction = 0.0
+            avg_conf = 80.0
+            
+        if avg_conf >= 75.0:
+            conf_cat = "High Confidence"
+        elif avg_conf >= 55.0:
+            conf_cat = "Medium Confidence"
+        else:
+            conf_cat = "Low Confidence"
+            
+        if stabilization_turn <= 3:
+            conv_cat = "Fast"
+        elif stabilization_turn == 4:
+            conv_cat = "Moderate"
+        else:
+            conv_cat = "Slow"
+            
+        convergence_analysis = {
+            "total_questions_until_sigma_stabilizes": stabilization_turn,
+            "average_sigma_reduction_per_turn": avg_reduction,
+            "confidence_category": conf_cat,
+            "convergence_category": conv_cat,
+            "average_confidence_signal": round(avg_conf, 2)
+        }
+
         if not ENABLE_BOUNDARY_DETECTION:
             # Legacy implementation fallback
             from models.interview import InterviewSession
@@ -882,9 +1258,12 @@ class AdaptiveEngine:
                         "boundary": "Unknown",
                         "subtopics": {}
                     }
+            competency_map["multimodal_convergence_telemetry"] = telemetry_list
+            competency_map["multimodal_convergence_analysis"] = convergence_analysis
+            competency_map = self._add_resume_inflation_analysis(session, competency_map)
             return competency_map
 
-        # Advanced boundary detection logic
+        # Advanced boundary classification
         from models.interview import InterviewSession
         session = InterviewSession.query.get(session_id)
         session_skills = self.get_skills_for_session(session) if session else ["Python", "DSA", "DBMS"]
@@ -950,4 +1329,7 @@ class AdaptiveEngine:
                         sub_boundary = "Does_Not_Know"
                     final_map[parent]["subtopics"][node] = sub_boundary
                     
+        final_map["multimodal_convergence_telemetry"] = telemetry_list
+        final_map["multimodal_convergence_analysis"] = convergence_analysis
+        final_map = self._add_resume_inflation_analysis(session, final_map)
         return final_map

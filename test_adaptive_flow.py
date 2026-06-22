@@ -1,5 +1,26 @@
-import io
 import os
+from pathlib import Path
+base_dir = Path(__file__).resolve().parent
+
+# Read DATABASE_URL from .env
+env_path = base_dir / ".env"
+db_uri = None
+if env_path.exists():
+    with open(env_path, 'r') as f:
+        for line in f:
+            if line.startswith("DATABASE_URL="):
+                db_uri = line.split("DATABASE_URL=")[1].strip()
+                break
+if not db_uri:
+    db_uri = os.environ.get("DATABASE_URL")
+if not db_uri:
+    raise ValueError("[ERROR] DATABASE_URL is missing. SQLite fallback is disabled by configuration rules.")
+if db_uri.startswith("postgres://"):
+    db_uri = db_uri.replace("postgres://", "postgresql://", 1)
+
+os.environ["DATABASE_URL"] = db_uri
+
+import io
 import json
 from app import app
 from database.connection import db
@@ -13,6 +34,9 @@ def run_test():
     print("=" * 70)
     print("      HireWise AI - Adaptive Interview & Research Flow Test      ")
     print("=" * 70)
+    
+    masked_uri = db_uri.split("@")[-1] if "@" in db_uri else db_uri
+    print(f"[INFO] Running flow test against Supabase PostgreSQL: postgresql://*****@{masked_uri}")
     
     # 1. Setup client
     app.config['TESTING'] = True
@@ -34,6 +58,21 @@ def run_test():
         else:
             print("[ INFO ] Using existing test user.")
         user_id = user.id
+        
+        # Seed mock resume with explicit claims to test Resume Inflation Score
+        from models.resume_upload import ResumeUpload
+        ResumeUpload.query.filter_by(user_id=user_id).delete()
+        resume = ResumeUpload(
+            user_id=user_id,
+            filename="cv.pdf",
+            file_path="uploads/cv.pdf",
+            skills_extracted="Python - Expert, DSA - Intermediate, DBMS - Beginner",
+            parsed_text="Highly proficient in python scripting and data structures.",
+            ats_score=80
+        )
+        db.session.add(resume)
+        db.session.commit()
+        print("[ INFO ] Seeded mock resume with explicit claims for test_student.")
             
         # Ensure we have some base questions seeded for Python, DSA, DBMS
         # If not, preload_questions runs on startup, but let's make sure

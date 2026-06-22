@@ -75,7 +75,7 @@ def run_verification():
         try:
             from database.connection import db
             db.engine.connect()
-            print_result("SQLite Database Connection", True, "Accessed database engine successfully.")
+            print_result("Database Connection", True, "Accessed database engine successfully.")
             
             inspector = db.inspect(db.engine)
             tables = inspector.get_table_names()
