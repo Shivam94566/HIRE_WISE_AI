@@ -147,7 +147,15 @@ class AdaptiveEngine:
             
             for skill in evaluated_skills:
                 skill_meta = final_map[skill]
+                if not isinstance(skill_meta, dict):
+                    continue
                 est_score = skill_meta.get("score", 50.0)
+                if est_score is None:
+                    est_score = 50.0
+                try:
+                    est_score = float(est_score)
+                except (ValueError, TypeError):
+                    est_score = 50.0
                 
                 if est_score < 50.0:
                     est_level = "Beginner"
@@ -298,7 +306,11 @@ class AdaptiveEngine:
         except Exception:
             c_map = {}
             
-        if skill_name not in c_map:
+        if not isinstance(c_map, dict):
+            c_map = {}
+            
+        skill_info = c_map.get(skill_name)
+        if not isinstance(skill_info, dict):
             c_map[skill_name] = {
                 "score": score,
                 "boundary": boundary or "Unknown",
@@ -307,20 +319,20 @@ class AdaptiveEngine:
                 "subtopics": subtopics or {}
             }
         else:
-            c_map[skill_name]["score"] = score
-            c_map[skill_name]["uncertainty"] = uncertainty
+            skill_info["score"] = score
+            skill_info["uncertainty"] = uncertainty
             if boundary:
-                c_map[skill_name]["boundary"] = boundary
+                skill_info["boundary"] = boundary
             if subtopics is not None:
-                c_map[skill_name]["subtopics"] = subtopics
+                skill_info["subtopics"] = subtopics
                 
             # Compute confidence level based on uncertainty
             if uncertainty < 5.0:
-                c_map[skill_name]["confidence_level"] = "Converged"
+                skill_info["confidence_level"] = "Converged"
             elif uncertainty < 10.0:
-                c_map[skill_name]["confidence_level"] = "Exploring"
+                skill_info["confidence_level"] = "Exploring"
             else:
-                c_map[skill_name]["confidence_level"] = "Uncertain"
+                skill_info["confidence_level"] = "Uncertain"
                 
         session.competency_map = json.dumps(c_map)
         db.session.commit()
@@ -408,7 +420,11 @@ class AdaptiveEngine:
             state.level = 'Advanced'
             
         c_map = self._get_competency_map_metadata(session_id)
-        old_unc = c_map.get(node_name, {}).get("uncertainty")
+        old_unc = None
+        if isinstance(c_map, dict):
+            skill_info = c_map.get(node_name)
+            if isinstance(skill_info, dict):
+                old_unc = skill_info.get("uncertainty")
         if old_unc is None:
             from models.interview import InterviewSession
             session = InterviewSession.query.get(session_id)
@@ -548,7 +564,11 @@ class AdaptiveEngine:
         
         # 2. Retrieve old uncertainty from competency map metadata
         c_map = self._get_competency_map_metadata(session_id)
-        old_unc = c_map.get(target_node, {}).get("uncertainty")
+        old_unc = None
+        if isinstance(c_map, dict):
+            skill_info = c_map.get(target_node)
+            if isinstance(skill_info, dict):
+                old_unc = skill_info.get("uncertainty")
         if old_unc is None:
             _, old_unc = self.get_initial_prior_for_skill(session, target_node)
             
@@ -786,7 +806,11 @@ class AdaptiveEngine:
             # Perform smaller Bayesian update directly to root skill as well
             old_r_score = root_state.score
             c_map_r = self._get_competency_map_metadata(session_id)
-            old_r_unc = c_map_r.get(skill_name, {}).get("uncertainty")
+            old_r_unc = None
+            if isinstance(c_map_r, dict):
+                skill_info = c_map_r.get(skill_name)
+                if isinstance(skill_info, dict):
+                    old_r_unc = skill_info.get("uncertainty")
             if old_r_unc is None:
                 _, old_r_unc = self.get_initial_prior_for_skill(session, skill_name)
                 
@@ -1123,7 +1147,13 @@ class AdaptiveEngine:
         
         # Telemetry updates for research purposes
         c_map = self._get_competency_map_metadata(session.id)
-        current_skill_unc = c_map.get(best_q.subtopic or target_skill, {}).get("uncertainty", 15.0)
+        current_skill_unc = None
+        if isinstance(c_map, dict):
+            skill_info = c_map.get(best_q.subtopic or target_skill)
+            if isinstance(skill_info, dict):
+                current_skill_unc = skill_info.get("uncertainty")
+        if current_skill_unc is None:
+            current_skill_unc = 15.0
         
         # Propagations trace
         propagation_records = self._get_recent_propagations(session.id)
@@ -1166,23 +1196,49 @@ class AdaptiveEngine:
         """
         # Load convergence telemetry
         c_map_raw = self._get_competency_map_metadata(session_id)
+        if not isinstance(c_map_raw, dict):
+            c_map_raw = {}
         telemetry_list = c_map_raw.get("multimodal_convergence_telemetry", [])
+        if not isinstance(telemetry_list, list):
+            telemetry_list = []
         
         stabilization_turn = None
         for turn in telemetry_list:
-            if abs(turn.get("sigma_change", 0.0)) <= 0.15:
-                stabilization_turn = turn.get("turn_number")
-                break
+            if not isinstance(turn, dict):
+                continue
+            sig_change = turn.get("sigma_change")
+            if sig_change is not None:
+                try:
+                    if abs(float(sig_change)) <= 0.15:
+                        stabilization_turn = turn.get("turn_number")
+                        break
+                except (ValueError, TypeError):
+                    pass
         if stabilization_turn is None:
             stabilization_turn = len(telemetry_list) if telemetry_list else 5
             
-        if telemetry_list:
-            total_reduction = sum(turn.get("sigma_before", 0.0) - turn.get("sigma_after", 0.0) for turn in telemetry_list)
-            avg_reduction = round(total_reduction / len(telemetry_list), 4)
-            avg_conf = sum(turn.get("confidence_signal", 0.0) for turn in telemetry_list) / len(telemetry_list)
-        else:
-            avg_reduction = 0.0
-            avg_conf = 80.0
+        reductions = []
+        confidences = []
+        for turn in telemetry_list:
+            if not isinstance(turn, dict):
+                continue
+            sig_before = turn.get("sigma_before")
+            sig_after = turn.get("sigma_after")
+            conf_sig = turn.get("confidence_signal")
+            
+            if sig_before is not None and sig_after is not None:
+                try:
+                    reductions.append(float(sig_before) - float(sig_after))
+                except (ValueError, TypeError):
+                    pass
+            if conf_sig is not None:
+                try:
+                    confidences.append(float(conf_sig))
+                except (ValueError, TypeError):
+                    pass
+                    
+        avg_reduction = round(sum(reductions) / len(reductions), 4) if reductions else 0.0
+        avg_conf = sum(confidences) / len(confidences) if confidences else 80.0
             
         if avg_conf >= 75.0:
             conf_cat = "High Confidence"
@@ -1276,7 +1332,11 @@ class AdaptiveEngine:
             skill = state.skill_name
             score = state.score
             
-            unc = c_map.get(skill, {}).get("uncertainty")
+            unc = None
+            if isinstance(c_map, dict):
+                skill_info = c_map.get(skill)
+                if isinstance(skill_info, dict):
+                    unc = skill_info.get("uncertainty")
             if unc is None:
                 _, unc = self.get_initial_prior_for_skill(session, skill)
                 

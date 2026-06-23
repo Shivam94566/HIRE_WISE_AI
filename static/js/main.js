@@ -1,35 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Theme Toggle logic
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    // 1. Theme Selector logic
+    const themeSelector = document.getElementById('theme-selector');
     const currentTheme = localStorage.getItem('theme') || 'light';
     
     // Set initial theme
     document.documentElement.setAttribute('data-theme', currentTheme);
-    updateThemeButton(currentTheme);
     
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', () => {
-            let theme = document.documentElement.getAttribute('data-theme');
-            let newTheme = theme === 'dark' ? 'light' : 'dark';
-            
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeButton(newTheme);
+    if (themeSelector) {
+        themeSelector.value = currentTheme;
+        themeSelector.addEventListener('change', (e) => {
+            const selectedTheme = e.target.value;
+            document.documentElement.setAttribute('data-theme', selectedTheme);
+            localStorage.setItem('theme', selectedTheme);
         });
     }
     
-    function updateThemeButton(theme) {
-        if (!themeToggleBtn) return;
-        const icon = themeToggleBtn.querySelector('i');
-        const text = themeToggleBtn.querySelector('span');
-        
-        if (theme === 'dark') {
-            if (icon) icon.className = 'bi bi-sun-fill';
-            if (text) text.textContent = 'Light Mode';
-        } else {
-            if (icon) icon.className = 'bi bi-moon-stars-fill';
-            if (text) text.textContent = 'Dark Mode';
-        }
+    // Backward compatibility for old toggle button if present
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            let theme = document.documentElement.getAttribute('data-theme');
+            let newTheme = 'light';
+            if (theme === 'light') newTheme = 'dark';
+            else if (theme === 'dark') newTheme = 'midnight';
+            else if (theme === 'midnight') newTheme = 'corporate';
+            else if (theme === 'corporate') newTheme = 'purple';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            if (themeSelector) themeSelector.value = newTheme;
+        });
     }
     
     // 2. Flash message automatic dismissal

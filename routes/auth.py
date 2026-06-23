@@ -1,11 +1,54 @@
+import os
+import requests
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from database.connection import db
 from models.user import User
 from services.email_service import EmailService
 
 auth_bp = Blueprint('auth', __name__)
+
+def verify_supabase_password(email, password):
+    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+    
+    headers = {}
+    if supabase_key:
+        headers["apikey"] = supabase_key
+        headers["Authorization"] = f"Bearer {supabase_key}"
+        
+    try:
+        payload = {
+            "email": email,
+            "password": password
+        }
+        res = requests.post(f"{supabase_url}/auth/v1/token?grant_type=password", json=payload, headers=headers, timeout=5)
+        if res.status_code == 200:
+            return True, res.json()
+        return False, res.text
+    except Exception as e:
+        return False, str(e)
+
+def signup_supabase_user(email, password):
+    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+    
+    headers = {}
+    if supabase_key:
+        headers["apikey"] = supabase_key
+        
+    try:
+        payload = {
+            "email": email,
+            "password": password
+        }
+        res = requests.post(f"{supabase_url}/auth/v1/signup", json=payload, headers=headers, timeout=5)
+        if res.status_code in [200, 201]:
+            return True, res.json()
+        return False, res.text
+    except Exception as e:
+        return False, str(e)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -32,6 +75,9 @@ def register():
             flash('Email is already registered.', 'danger')
             return render_template('register.html')
             
+        # Try to sign up user in Supabase Auth first
+        signup_supabase_user(email, password)
+
         # Create new user
         from models.role import Role
         user_role = Role.query.filter_by(name='USER').first()
@@ -112,7 +158,17 @@ def login():
         # Look up by email first, then username
         user = db.session.query(User).filter((User.email == email_or_username) | (User.username == email_or_username)).first()
         
-        if not user or not user.check_password(password):
+        authenticated = False
+        if user:
+            # Try Supabase Auth first
+            success, _ = verify_supabase_password(user.email, password)
+            if success:
+                authenticated = True
+            elif user.check_password(password):
+                # Fallback to local password checking for backward compatibility
+                authenticated = True
+                
+        if not user or not authenticated:
             failed_key = f"failed_logins_{email_or_username}"
             session[failed_key] = session.get(failed_key, 0) + 1
             if session[failed_key] >= 3:
@@ -411,3 +467,120 @@ def reset_password(token):
             return redirect(url_for('auth.forgot_password'))
             
     return render_template('reset_password.html', token=token)
+
+@auth_bp.route('/auth/oauth/<provider>')
+def oauth_login(provider):
+    if provider not in ['google', 'github', 'linkedin']:
+        flash('Invalid provider.', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    callback_url = url_for('auth.oauth_callback', _external=True)
+    authorize_url = f"{supabase_url}/auth/v1/authorize?provider={provider}&redirect_to={callback_url}"
+    return redirect(authorize_url)
+
+@auth_bp.route('/auth/callback')
+def oauth_callback():
+    return render_template('oauth_callback.html')
+
+@auth_bp.route('/auth/token-login', methods=['POST'])
+def token_login():
+    data = request.get_json() or {}
+    access_token = data.get('access_token')
+    if not access_token:
+        return jsonify({"success": False, "error": "Access token missing."}), 400
+        
+    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+    if supabase_key:
+        headers["apikey"] = supabase_key
+        
+    try:
+        response = requests.get(f"{supabase_url}/auth/v1/user", headers=headers, timeout=10)
+        if response.status_code != 200:
+            return jsonify({"success": False, "error": "Invalid token or user not authenticated by Supabase."}), 401
+            
+        user_data = response.json()
+        email = user_data.get("email")
+        if not email:
+            return jsonify({"success": False, "error": "Email address not found in Supabase token payload."}), 400
+            
+        # Find user in our local DB or create one
+        user = db.session.query(User).filter_by(email=email).first()
+        if not user:
+            username = email.split('@')[0]
+            # Check duplicate username
+            dup_username = db.session.query(User).filter_by(username=username).first()
+            if dup_username:
+                import random
+                username = f"{username}_{random.randint(1000, 9999)}"
+                
+            from models.role import Role
+            user_role = Role.query.filter_by(name='USER').first()
+            
+            user = User(
+                username=username,
+                email=email,
+                role_id=user_role.id if user_role else None,
+                is_active=True
+            )
+            # Never store passwords locally for social login users
+            user.set_password(os.urandom(16).hex())
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            # Send welcome email and notify admin as done in standard signup
+            try:
+                # Trigger Admin Notification
+                from models.admin_notification import AdminNotification
+                reg_notif = AdminNotification(
+                    type='registration',
+                    message=f"New social login user registered: {username} ({email})"
+                )
+                db.session.add(reg_notif)
+                db.session.commit()
+                
+                dashboard_url = url_for('dashboard.home', _external=True)
+                EmailService.send_email_async(
+                    to_email=user.email,
+                    subject="Welcome to HireWise AI",
+                    template_name="welcome_email.html",
+                    context={"name": user.name, "dashboard_url": dashboard_url},
+                    user_id=user.id,
+                    event_type="welcome",
+                    ip_address=request.remote_addr
+                )
+            except Exception as e_notify:
+                print(f"Social login notification warning: {e_notify}")
+        
+        if not user.is_active:
+            return jsonify({"success": False, "error": "Your account has been suspended."}), 403
+            
+        login_user(user, remember=True)
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        # Log User Session
+        try:
+            from models.user_session import UserSession
+            session_log = UserSession(
+                user_id=user.id,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            db.session.add(session_log)
+            db.session.commit()
+        except Exception as e_sess:
+            print(f"Error logging session: {e_sess}")
+            db.session.rollback()
+            
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Token login error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500

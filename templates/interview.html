@@ -7,27 +7,65 @@
 <input type="hidden" id="meta-session-id" value="{{ session_id }}">
 <input type="hidden" id="meta-question-text" value="{{ question_text }}">
 <input type="hidden" id="meta-is-follow-up" value="{{ 'true' if is_follow_up else 'false' }}">
+<input type="hidden" id="meta-current-num" value="{{ current_num }}">
+<input type="hidden" id="meta-total-num" value="{{ total_num }}">
 
-<div class="container-fluid p-0" style="max-width: 900px; margin: 0 auto; position: relative;">
+<div class="container-fluid p-0" id="interview-room-container" style="max-width: 900px; margin: 0 auto; position: relative; transition: all 0.3s ease;">
     <!-- Header Block -->
-    <header class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            {% if is_follow_up %}
-                <span class="badge bg-danger mb-2 px-3 py-1.5 fw-semibold" id="question-progress-badge" style="border-radius: 12px;">
-                    <i class="bi bi-robot me-1"></i> AI Follow-Up Question
-                </span>
-            {% else %}
-                <span class="badge bg-primary mb-2 px-3 py-1.5 fw-semibold" id="question-progress-badge" style="border-radius: 12px;">
-                    Progress: Question <span id="current-question-num">{{ current_num }}</span> of <span id="total-question-num">{{ total_num }}</span>
-                </span>
-            {% endif %}
-            <h1 class="fw-bold h2 mb-0">Interview Room</h1>
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <div>
+                {% if is_follow_up %}
+                    <span class="badge bg-danger mb-2 px-3 py-1.5 fw-semibold" id="question-progress-badge" style="border-radius: 12px;">
+                        <i class="bi bi-robot me-1"></i> AI Follow-Up Question
+                    </span>
+                {% else %}
+                    <span class="badge bg-primary mb-2 px-3 py-1.5 fw-semibold" id="question-progress-badge" style="border-radius: 12px;">
+                        Progress: Question <span id="current-question-num">{{ current_num }}</span> of <span id="total-question-num">{{ total_num }}</span>
+                    </span>
+                {% endif %}
+                <div class="d-flex align-items-center gap-2">
+                    <h1 class="fw-bold h2 mb-0">Interview Room</h1>
+                    <button class="btn btn-sm btn-outline-secondary py-1 px-2 border-0 bg-dark bg-opacity-20" id="fullscreen-btn" style="border-radius: 8px;" title="Toggle Fullscreen Mode">
+                        <i class="bi bi-fullscreen" id="fullscreen-icon"></i>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="text-end">
-            <span class="text-muted small d-block">Time Elapsed</span>
-            <span class="fs-4 fw-bold" id="timer-display">00:00</span>
+        
+        <!-- Media & Connection Status + Timers Panel -->
+        <div class="d-flex align-items-center gap-3 bg-dark bg-opacity-25 p-2.5 border border-opacity-10" style="border-radius: 15px; backdrop-filter: blur(10px); border-color: var(--border-color) !important;">
+            <!-- Status Indicators -->
+            <div class="d-flex flex-column gap-1.5 small">
+                <span class="badge bg-success-light text-success" id="status-camera" style="border-radius: 6px; font-size: 0.72rem;"><i class="bi bi-camera-video-fill me-1"></i>Cam OK</span>
+                <span class="badge bg-success-light text-success" id="status-mic" style="border-radius: 6px; font-size: 0.72rem;"><i class="bi bi-mic-fill me-1"></i>Mic OK</span>
+                <span class="badge bg-success-light text-success" id="status-network" style="border-radius: 6px; font-size: 0.72rem;"><i class="bi bi-wifi me-1"></i>Online</span>
+            </div>
+            
+            <!-- Timers -->
+            <div class="border-start border-opacity-10 ps-3 text-end" style="min-width: 140px; border-color: rgba(255,255,255,0.1) !important;">
+                <div class="d-flex justify-content-between gap-3 text-secondary small">
+                    <span>Q-Timer:</span>
+                    <span class="fw-bold text-white" id="timer-display">00:00</span>
+                </div>
+                <div class="d-flex justify-content-between gap-3 text-secondary small mt-0.5">
+                    <span>Session:</span>
+                    <span class="fw-bold text-white" id="session-timer-display">00:00</span>
+                </div>
+            </div>
         </div>
     </header>
+
+    <!-- Always Visible Progress Bar -->
+    <div class="glass-card mb-4 p-3" style="border-radius: 15px;">
+        <div class="d-flex justify-content-between mb-1.5 small text-secondary">
+            <span class="fw-semibold"><i class="bi bi-hourglass-split me-1 text-primary"></i>Interview Progression</span>
+            <span id="overall-progress-text" class="fw-bold text-white">0%</span>
+        </div>
+        <div class="progress" style="height: 10px; border-radius: 5px; background-color: rgba(255,255,255,0.1);">
+            <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" id="overall-progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+    </div>
 
     <!-- Active Question Card -->
     <div class="glass-card mb-4 bg-gradient-primary text-white border-0 py-4 px-4" style="border-radius: 20px; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);">
@@ -125,7 +163,7 @@
                     </div>
                 </div>
 
-                <!-- Completion Progress Bar -->
+                <!-- Completion Progress Bar (Dashboard version) -->
                 <div class="mb-4">
                     <div class="d-flex justify-content-between mb-1 small text-secondary">
                         <span>Interview Progression</span>

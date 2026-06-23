@@ -74,6 +74,26 @@
                 Sign In
             </button>
             
+            <!-- Social Login Providers -->
+            <div id="social-auth-section" class="my-4 text-center">
+                <div class="d-flex align-items-center mb-3">
+                    <hr class="flex-grow-1 border-secondary opacity-25">
+                    <span class="px-2 text-secondary small">Or connect with</span>
+                    <hr class="flex-grow-1 border-secondary opacity-25">
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="btn btn-outline-light w-100 py-2.5 d-flex align-items-center justify-content-center gap-2" style="border-radius: 12px; border-color: rgba(255,255,255,0.1); color: var(--text-color); font-weight: 500; background: rgba(255,255,255,0.02);">
+                        <i class="bi bi-google text-danger"></i> Continue with Google
+                    </a>
+                    <a href="{{ url_for('auth.oauth_login', provider='github') }}" class="btn btn-outline-light w-100 py-2.5 d-flex align-items-center justify-content-center gap-2" style="border-radius: 12px; border-color: rgba(255,255,255,0.1); color: var(--text-color); font-weight: 500; background: rgba(255,255,255,0.02);">
+                        <i class="bi bi-github text-white"></i> Continue with GitHub
+                    </a>
+                    <a href="{{ url_for('auth.oauth_login', provider='linkedin') }}" class="btn btn-outline-light w-100 py-2.5 d-flex align-items-center justify-content-center gap-2" style="border-radius: 12px; border-color: rgba(255,255,255,0.1); color: var(--text-color); font-weight: 500; background: rgba(255,255,255,0.02);">
+                        <i class="bi bi-linkedin text-primary"></i> Continue with LinkedIn
+                    </a>
+                </div>
+            </div>
+            
             <!-- Redirect Option -->
             <div class="text-center" id="signup-redirect">
                 <span class="text-secondary small">Don't have an account? </span>
@@ -106,6 +126,7 @@ function switchLoginRole(role) {
     const submitBtn = document.getElementById('submit-btn');
     const usernameLabel = document.getElementById('label-username');
     const usernameInput = document.getElementById('email_or_username');
+    const socialAuth = document.getElementById('social-auth-section');
 
     if (role === 'admin') {
         userBtn.classList.remove('active');
@@ -120,6 +141,7 @@ function switchLoginRole(role) {
         usernameInput.placeholder = "Enter admin ID or email";
         redirectDiv.style.visibility = 'hidden';
         submitBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        if (socialAuth) socialAuth.style.display = 'none';
     } else {
         adminBtn.classList.remove('active');
         adminBtn.classList.add('text-secondary');
@@ -133,6 +155,7 @@ function switchLoginRole(role) {
         usernameInput.placeholder = "Enter username or email";
         redirectDiv.style.visibility = 'visible';
         submitBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+        if (socialAuth) socialAuth.style.display = 'block';
     }
 }
 </script>

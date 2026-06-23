@@ -69,49 +69,71 @@
         </div>
     </div>
 
-    <!-- Stats Cards Row 2 -->
+    <!-- Recruiter Analytics Cards -->
     <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="widget-card">
+        <div class="col-md-4">
+            <div class="widget-card h-100">
                 <div>
-                    <small class="text-muted d-block uppercase fw-bold mb-1">Interviews Conducted</small>
-                    <span class="fs-2 fw-bold text-white">{{ total_interviews }}</span>
-                </div>
-                <div class="widget-icon bg-danger-light text-danger">
-                    <i class="bi bi-journal-code"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="widget-card">
-                <div>
-                    <small class="text-muted d-block uppercase fw-bold mb-1">Mentor Sessions</small>
-                    <span class="fs-2 fw-bold text-white">{{ total_mentor_sessions }}</span>
-                </div>
-                <div class="widget-icon bg-primary-light text-primary">
-                    <i class="bi bi-chat-dots-fill"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="widget-card">
-                <div>
-                    <small class="text-muted d-block uppercase fw-bold mb-1">Resume Uploads</small>
-                    <span class="fs-2 fw-bold text-white">{{ total_resumes }}</span>
-                </div>
-                <div class="widget-icon bg-warning-light text-warning">
-                    <i class="bi bi-file-earmark-arrow-up-fill"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="widget-card">
-                <div>
-                    <small class="text-muted d-block uppercase fw-bold mb-1">Average Score</small>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Average Candidate Score</small>
                     <span class="fs-2 fw-bold text-white">{{ avg_score }}%</span>
                 </div>
                 <div class="widget-icon bg-success-light text-success">
                     <i class="bi bi-star-fill"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="widget-card h-100">
+                <div>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Average Confidence Level</small>
+                    <span class="fs-2 fw-bold text-white">{{ avg_confidence }}%</span>
+                </div>
+                <div class="widget-icon bg-info-light text-info">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="widget-card h-100">
+                <div>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Average Questions to Stabilize</small>
+                    <span class="fs-2 fw-bold text-white">{{ avg_stabilization_questions }}</span>
+                </div>
+                <div class="widget-icon bg-primary-light text-primary">
+                    <i class="bi bi-activity"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="widget-card h-100">
+                <div>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Average Resume Inflation Score</small>
+                    <span class="fs-2 fw-bold text-white">{{ avg_inflation }}%</span>
+                </div>
+                <div class="widget-icon bg-danger-light text-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="widget-card h-100">
+                <div>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Top Evaluated Skills</small>
+                    <span class="fs-5 fw-bold text-white text-truncate d-block" style="max-width: 250px;">{{ top_skills_str }}</span>
+                </div>
+                <div class="widget-icon bg-warning-light text-warning">
+                    <i class="bi bi-award-fill"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="widget-card h-100">
+                <div>
+                    <small class="text-muted d-block uppercase fw-bold mb-1">Total Interviews Conducted</small>
+                    <span class="fs-2 fw-bold text-white">{{ total_interviews }}</span>
+                </div>
+                <div class="widget-icon bg-secondary-light text-secondary">
+                    <i class="bi bi-journal-code"></i>
                 </div>
             </div>
         </div>

@@ -49,7 +49,16 @@ def login():
             (User.email == email_or_username) | (User.username == email_or_username)
         ).first()
         
-        if not user or not user.check_password(password):
+        from routes.auth import verify_supabase_password
+        authenticated = False
+        if user:
+            success, _ = verify_supabase_password(user.email, password)
+            if success:
+                authenticated = True
+            elif user.check_password(password):
+                authenticated = True
+        
+        if not user or not authenticated:
             failed_key = f"failed_logins_{email_or_username}"
             session[failed_key] = session.get(failed_key, 0) + 1
             if session[failed_key] >= 3:
@@ -204,9 +213,70 @@ def dashboard():
     # 8. Total Resume Uploads
     total_resumes = db.session.query(ResumeUpload).count()
     
-    # 9. Average overall score
-    avg_score = db.session.query(db.func.avg(InterviewSession.overall_score)).filter_by(status='completed').scalar() or 0.0
-    avg_score = round(float(avg_score), 1)
+    # 9. Recruiter Analytics calculations
+    completed_sessions = db.session.query(InterviewSession).filter_by(status='completed').all()
+    
+    avg_score = 0.0
+    avg_confidence = 0.0
+    avg_stabilization_questions = 0.0
+    avg_inflation = 0.0
+    skills_counts = {}
+    
+    total_completed = len(completed_sessions)
+    if total_completed > 0:
+        total_score_sum = 0.0
+        total_confidence_sum = 0.0
+        total_stabilization_sum = 0.0
+        total_inflation_sum = 0.0
+        
+        confidence_count = 0
+        stabilization_count = 0
+        inflation_count = 0
+        
+        for sess in completed_sessions:
+            total_score_sum += (sess.overall_score or 0.0)
+            
+            comp_map = {}
+            if sess.competency_map:
+                try:
+                    comp_map = json.loads(sess.competency_map)
+                except Exception:
+                    pass
+            
+            for key in comp_map.keys():
+                if key in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+                    continue
+                skills_counts[key] = skills_counts.get(key, 0) + 1
+                
+            conv_analysis = comp_map.get("multimodal_convergence_analysis")
+            if conv_analysis and isinstance(conv_analysis, dict):
+                sig = conv_analysis.get("average_confidence_signal")
+                if sig is not None:
+                    total_confidence_sum += float(sig)
+                    confidence_count += 1
+                
+                qs = conv_analysis.get("total_questions_until_sigma_stabilizes")
+                if qs is not None:
+                    total_stabilization_sum += int(qs)
+                    stabilization_count += 1
+                    
+            infl_analysis = comp_map.get("resume_inflation_analysis")
+            if infl_analysis and isinstance(infl_analysis, dict):
+                infl_score = infl_analysis.get("resume_inflation_score")
+                if infl_score is not None:
+                    total_inflation_sum += float(infl_score)
+                    inflation_count += 1
+                    
+        avg_score = round(total_score_sum / total_completed, 1)
+        if confidence_count > 0:
+            avg_confidence = round(total_confidence_sum / confidence_count, 1)
+        if stabilization_count > 0:
+            avg_stabilization_questions = round(total_stabilization_sum / stabilization_count, 1)
+        if inflation_count > 0:
+            avg_inflation = round(total_inflation_sum / inflation_count, 1)
+            
+    sorted_skills = sorted(skills_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+    top_skills_str = ", ".join([s for s, c in sorted_skills]) if sorted_skills else "None"
     
     # 10. Database Size
     db_size_mb = 0.0
@@ -254,6 +324,10 @@ def dashboard():
         total_mentor_sessions=total_mentor_sessions,
         total_resumes=total_resumes,
         avg_score=avg_score,
+        avg_confidence=avg_confidence,
+        avg_stabilization_questions=avg_stabilization_questions,
+        avg_inflation=avg_inflation,
+        top_skills_str=top_skills_str,
         db_size=db_size_mb,
         uptime=uptime_str,
         gemini_calls=gemini_calls,
@@ -527,13 +601,17 @@ def interviews_list():
     search_company = request.args.get('company', '').strip()
     filter_score = request.args.get('score', '').strip() # 'high' (>=90), 'average' (70-89), 'low' (<70)
     filter_type = request.args.get('type', '').strip() # 'HR', 'Technical', 'Mixed', 'Company', 'Resume'
+    filter_inflation = request.args.get('inflation', '').strip() # 'high' (>=70), 'medium' (30-69), 'low' (<30)
+    filter_confidence = request.args.get('confidence', '').strip() # 'high' (>=80), 'medium' (50-79), 'low' (<50)
+    sort_by = request.args.get('sort', 'date_desc').strip()
+    
     page = request.args.get('page', 1, type=int)
     per_page = 15
     
     query = db.session.query(InterviewSession).filter_by(status='completed')
     
     if search_user:
-        query = query.join(User).filter(User.username.like(f"%{search_user}%") | User.full_name.like(f"%{search_user}%"))
+        query = query.join(User).filter((User.username.like(f"%{search_user}%")) | (User.full_name.like(f"%{search_user}%")))
     if search_company:
         query = query.filter(InterviewSession.company_name.like(f"%{search_company}%"))
     if filter_type:
@@ -545,7 +623,79 @@ def interviews_list():
     elif filter_score == 'low':
         query = query.filter(InterviewSession.overall_score < 70)
         
-    pagination = query.order_by(InterviewSession.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    sessions = query.all()
+    
+    # Filter by resume inflation and confidence signal in python
+    filtered_sessions = []
+    for sess in sessions:
+        comp_map = sess.get_competency_map()
+        
+        # Resume inflation filter
+        if filter_inflation:
+            infl_analysis = comp_map.get("resume_inflation_analysis", {})
+            infl_score = infl_analysis.get("resume_inflation_score", 0.0) if isinstance(infl_analysis, dict) else 0.0
+            if filter_inflation == 'high' and infl_score < 70:
+                continue
+            elif filter_inflation == 'medium' and (infl_score < 30 or infl_score >= 70):
+                continue
+            elif filter_inflation == 'low' and infl_score >= 30:
+                continue
+                
+        # Confidence signal filter
+        if filter_confidence:
+            conv_analysis = comp_map.get("multimodal_convergence_analysis", {})
+            conf_sig = conv_analysis.get("average_confidence_signal", 0.0) if isinstance(conv_analysis, dict) else 0.0
+            if filter_confidence == 'high' and conf_sig < 80:
+                continue
+            elif filter_confidence == 'medium' and (conf_sig < 50 or conf_sig >= 80):
+                continue
+            elif filter_confidence == 'low' and conf_sig >= 50:
+                continue
+                
+        filtered_sessions.append(sess)
+        
+    # Sort
+    if sort_by == 'score_desc':
+        filtered_sessions.sort(key=lambda x: x.overall_score or 0.0, reverse=True)
+    elif sort_by == 'score_asc':
+        filtered_sessions.sort(key=lambda x: x.overall_score or 0.0)
+    elif sort_by == 'date_asc':
+        filtered_sessions.sort(key=lambda x: x.created_at)
+    else: # default date_desc
+        filtered_sessions.sort(key=lambda x: x.created_at, reverse=True)
+        
+    # Paginate
+    total_items = len(filtered_sessions)
+    total_pages = (total_items + per_page - 1) // per_page
+    page = max(1, min(page, total_pages)) if total_pages > 0 else 1
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_items = filtered_sessions[start_idx:end_idx]
+    
+    class SimplePagination:
+        def __init__(self, items, page, per_page, total):
+            self.items = items
+            self.page = page
+            self.per_page = per_page
+            self.total = total
+            self.pages = (total + per_page - 1) // per_page
+            self.has_prev = page > 1
+            self.prev_num = page - 1
+            self.has_next = page < self.pages
+            self.next_num = page + 1
+            
+        def iter_pages(self, left_edge=1, right_edge=1, left_current=2, right_current=2):
+            last = 0
+            for num in range(1, self.pages + 1):
+                if num <= left_edge or \
+                   (num >= self.page - left_current and num <= self.page + right_current) or \
+                   num > self.pages - right_edge:
+                    if last + 1 != num:
+                        yield None
+                    yield num
+                    last = num
+
+    pagination = SimplePagination(paginated_items, page, per_page, total_items)
     unread_notifs_count = db.session.query(AdminNotification).filter_by(is_read=False).count()
     
     return render_template(
@@ -555,6 +705,147 @@ def interviews_list():
         search_company=search_company,
         filter_score=filter_score,
         filter_type=filter_type,
+        filter_inflation=filter_inflation,
+        filter_confidence=filter_confidence,
+        sort_by=sort_by,
+        unread_count=unread_notifs_count
+    )
+
+@admin_bp.route('/admin/interview/<int:session_id>/ai-report')
+@admin_required
+def ai_report(session_id):
+    """View detailed AI assessment report with radar charts and convergence graphs"""
+    interview = db.first_or_404(db.session.query(InterviewSession).filter_by(id=session_id, status='completed'))
+    responses = db.session.query(UserResponse).filter_by(session_id=session_id).all()
+    unread_notifs_count = db.session.query(AdminNotification).filter_by(is_read=False).count()
+    
+    # Load competency map and parse details
+    comp_map = interview.get_competency_map()
+    
+    # Extract evaluated skills (exclude the special metadata keys)
+    skills = {}
+    for key, val in comp_map.items():
+        if key not in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+            skills[key] = val
+            
+    # Resume Inflation Analysis details
+    inflation_analysis = comp_map.get("resume_inflation_analysis", {})
+    inflation_score = inflation_analysis.get("resume_inflation_score", 0.0)
+    skills_mismatch = inflation_analysis.get("skills_mismatch", [])
+    inflation_explainability = inflation_analysis.get("explainability_log", [])
+    
+    # Multimodal Convergence Telemetry & Analysis
+    convergence_telemetry = comp_map.get("multimodal_convergence_telemetry", [])
+    convergence_analysis = comp_map.get("multimodal_convergence_analysis", {})
+    
+    # Extract decision log details (collapsible Bayesian logs)
+    decision_log = interview.get_decision_log()
+    
+    # Identify strengths and weaknesses
+    strengths = []
+    weaknesses = []
+    for skill_name, skill_data in skills.items():
+        score = skill_data.get("score", 50.0)
+        boundary = skill_data.get("boundary", "Intermediate")
+        if score >= 75:
+            strengths.append(f"{skill_name} (Score: {score:.1f}% - {boundary})")
+        else:
+            weaknesses.append(f"{skill_name} (Score: {score:.1f}% - {boundary})")
+            
+    if not strengths:
+        strengths.append("No particular strengths identified above 75%.")
+    if not weaknesses:
+        weaknesses.append("No significant weaknesses identified below 75%.")
+        
+    return render_template(
+        'admin_interview_report.html',
+        interview=interview,
+        responses=responses,
+        skills=skills,
+        inflation_score=inflation_score,
+        skills_mismatch=skills_mismatch,
+        inflation_explainability=inflation_explainability,
+        convergence_telemetry=convergence_telemetry,
+        convergence_analysis=convergence_analysis,
+        decision_log=decision_log,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        unread_count=unread_notifs_count
+    )
+
+@admin_bp.route('/admin/interviews/compare')
+@admin_required
+def compare_interviews():
+    """Compare multiple candidate interview sessions side-by-side"""
+    ids_param = request.args.get('ids', '').strip()
+    if not ids_param:
+        flash("No candidate interviews selected for comparison.", "warning")
+        return redirect(url_for('admin.interviews_list'))
+        
+    try:
+        session_ids = [int(id_str) for id_str in ids_param.split(',') if id_str.strip().isdigit()]
+    except Exception:
+        flash("Invalid candidate session IDs provided.", "danger")
+        return redirect(url_for('admin.interviews_list'))
+        
+    if len(session_ids) < 2:
+        flash("Please select at least 2 candidates to compare side-by-side.", "warning")
+        return redirect(url_for('admin.interviews_list'))
+        
+    interviews = db.session.query(InterviewSession).filter(
+        InterviewSession.id.in_(session_ids),
+        InterviewSession.status == 'completed'
+    ).all()
+    
+    if len(interviews) < len(session_ids):
+        flash("Some of the selected interview sessions could not be found or are not completed.", "warning")
+        
+    if not interviews:
+        return redirect(url_for('admin.interviews_list'))
+        
+    # We will build direct response-by-response transcript comparisons
+    # Find responses for all selected interviews
+    responses_by_interview = {}
+    skills_by_interview = {}
+    inflation_by_interview = {}
+    confidence_by_interview = {}
+    
+    # Collect all unique question texts/topics across interviews to compare response patterns
+    # (Since question index might differ, we can group responses by question number)
+    max_questions = 0
+    
+    for i in interviews:
+        resps = db.session.query(UserResponse).filter_by(session_id=i.id).order_by(UserResponse.id).all()
+        responses_by_interview[i.id] = resps
+        max_questions = max(max_questions, len(resps))
+        
+        comp_map = i.get_competency_map()
+        
+        # Skill competency scores
+        skills = {}
+        for key, val in comp_map.items():
+            if key not in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+                skills[key] = val
+        skills_by_interview[i.id] = skills
+        
+        # Resume inflation analysis
+        infl = comp_map.get("resume_inflation_analysis", {})
+        inflation_by_interview[i.id] = infl.get("resume_inflation_score", 0.0)
+        
+        # Multimodal convergence signal
+        conv = comp_map.get("multimodal_convergence_analysis", {})
+        confidence_by_interview[i.id] = conv.get("average_confidence_signal", 0.0)
+        
+    unread_notifs_count = db.session.query(AdminNotification).filter_by(is_read=False).count()
+    
+    return render_template(
+        'admin_interview_compare.html',
+        interviews=interviews,
+        responses_by_interview=responses_by_interview,
+        skills_by_interview=skills_by_interview,
+        inflation_by_interview=inflation_by_interview,
+        confidence_by_interview=confidence_by_interview,
+        max_questions=max_questions,
         unread_count=unread_notifs_count
     )
 

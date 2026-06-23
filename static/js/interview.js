@@ -27,8 +27,139 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Interview Metadata (Injected in template)
     const sessionId = parseInt(document.getElementById('meta-session-id').value);
+    let sessionTimerInterval = null;
+    let sessionElapsed = parseInt(sessionStorage.getItem('interview_session_elapsed_' + sessionId) || '0');
     
     let radarChart = null;
+
+    // 1. Overall Session Timer
+    function startSessionTimer() {
+        const sessionTimerDisplay = document.getElementById('session-timer-display');
+        if (!sessionTimerDisplay) return;
+        
+        function updateSessionTimerUI() {
+            const mins = String(Math.floor(sessionElapsed / 60)).padStart(2, '0');
+            const secs = String(sessionElapsed % 60).padStart(2, '0');
+            sessionTimerDisplay.textContent = `${mins}:${secs}`;
+        }
+        
+        updateSessionTimerUI();
+        
+        sessionTimerInterval = setInterval(() => {
+            sessionElapsed++;
+            sessionStorage.setItem('interview_session_elapsed_' + sessionId, sessionElapsed);
+            updateSessionTimerUI();
+        }, 1000);
+    }
+
+    // 2. Device and Network status monitoring
+    function updateStatusIndicators() {
+        const cameraStatus = document.getElementById('status-camera');
+        const micStatus = document.getElementById('status-mic');
+        const networkStatus = document.getElementById('status-network');
+        
+        // Network Check
+        if (networkStatus) {
+            if (navigator.onLine) {
+                networkStatus.textContent = 'Online';
+                networkStatus.className = 'badge bg-success-light text-success';
+            } else {
+                networkStatus.textContent = 'Offline';
+                networkStatus.className = 'badge bg-danger-light text-danger';
+            }
+        }
+        
+        // Camera & Mic Track Checks
+        if (stream) {
+            const videoTracks = stream.getVideoTracks();
+            const audioTracks = stream.getAudioTracks();
+            
+            const isCamActive = videoTracks.length > 0 && videoTracks.every(t => t.readyState === 'live' && t.enabled);
+            const isMicActive = audioTracks.length > 0 && audioTracks.every(t => t.readyState === 'live' && t.enabled);
+            
+            if (cameraStatus) {
+                if (isCamActive) {
+                    cameraStatus.textContent = 'Cam OK';
+                    cameraStatus.className = 'badge bg-success-light text-success';
+                } else {
+                    cameraStatus.textContent = 'Cam Off';
+                    cameraStatus.className = 'badge bg-danger-light text-danger';
+                }
+            }
+            
+            if (micStatus) {
+                if (isMicActive) {
+                    micStatus.textContent = 'Mic OK';
+                    micStatus.className = 'badge bg-success-light text-success';
+                } else {
+                    micStatus.textContent = 'Mic Off';
+                    micStatus.className = 'badge bg-danger-light text-danger';
+                }
+            }
+        } else {
+            if (cameraStatus) {
+                cameraStatus.textContent = 'Cam Blocked';
+                cameraStatus.className = 'badge bg-danger-light text-danger';
+            }
+            if (micStatus) {
+                micStatus.textContent = 'Mic Blocked';
+                micStatus.className = 'badge bg-danger-light text-danger';
+            }
+        }
+    }
+
+    // 3. Fullscreen Mode Toggle
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', () => {
+            const fsContainer = document.documentElement;
+            const icon = document.getElementById('fullscreen-icon');
+            
+            if (!document.fullscreenElement) {
+                fsContainer.requestFullscreen().then(() => {
+                    if (icon) {
+                        icon.className = 'bi bi-fullscreen-exit';
+                    }
+                }).catch(err => {
+                    console.error(`Error attempting to enable fullscreen mode: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    if (icon) {
+                        icon.className = 'bi bi-fullscreen';
+                    }
+                });
+            }
+        });
+    }
+
+    // 4. Overall progression bar updates
+    function updateOverallProgressBar(currNum, totalNum) {
+        const overallPb = document.getElementById('overall-progress-bar');
+        const overallPt = document.getElementById('overall-progress-text');
+        if (!overallPb) return;
+        
+        currNum = parseInt(currNum);
+        totalNum = parseInt(totalNum) || 5;
+        
+        const progressPct = Math.round(((currNum - 1) / totalNum) * 100);
+        overallPb.style.width = `${progressPct}%`;
+        overallPb.setAttribute('aria-valuenow', progressPct);
+        if (overallPt) {
+            overallPt.textContent = `${progressPct}% Complete (Question ${currNum} of ${totalNum})`;
+        }
+    }
+
+    // Initialize timers and status indicators
+    startSessionTimer();
+    window.addEventListener('online', updateStatusIndicators);
+    window.addEventListener('offline', updateStatusIndicators);
+    setInterval(updateStatusIndicators, 2500);
+
+    // Initialize progression bar
+    const initialCurrNum = document.getElementById('meta-current-num').value;
+    const initialTotalNum = document.getElementById('meta-total-num').value;
+    updateOverallProgressBar(initialCurrNum, initialTotalNum);
 
     // Helper to update live dashboard metrics
     function updateDashboard(data) {
@@ -154,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 1. Initialize Webcam and Microphone Streams
+    // Initialize Webcam and Microphone Streams
     async function initCamera() {
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -166,17 +297,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Enable start recording button
             startBtn.disabled = false;
             if (recordingStatus) recordingStatus.textContent = 'Ready to Record';
+            updateStatusIndicators();
         } catch (err) {
             console.error('Error accessing camera/microphone:', err);
             if (recordingStatus) {
                 recordingStatus.textContent = 'Camera/Mic blocked. Please allow permissions.';
                 recordingStatus.className = 'text-danger fw-bold';
             }
+            updateStatusIndicators();
             alert('Could not access your camera or microphone. Please check your browser permissions.');
         }
     }
 
-    // 2. Setup Web Speech Recognition for Real-time Feedback
+    // Setup Web Speech Recognition for Real-time Feedback
     function initSpeechRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
@@ -212,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCamera();
     initSpeechRecognition();
 
-    // 3. Start Recording
+    // Start Recording
     startBtn.addEventListener('click', () => {
         if (!stream) return;
         
@@ -236,7 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
 
         // Configure recorders
-        // Separate stream into audio-only and video (audio+video) streams
         const audioStream = new MediaStream(stream.getAudioTracks());
         
         audioRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
@@ -283,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Stop Recording
+    // Stop Recording
     stopBtn.addEventListener('click', () => {
         clearInterval(timerInterval);
         
@@ -312,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 5. Submit Answer (AJAX)
+    // Submit Answer (AJAX)
     submitBtn.addEventListener('click', async () => {
         if (!audioBlob || !videoBlob) {
             alert('Please record an answer first.');
@@ -327,7 +459,6 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('duration', recordDuration);
         formData.append('browser_transcript', finalTranscript.trim());
         
-        // Dynamically pull values from metadata inputs (which change between questions)
         const currentIsFollowUp = document.getElementById('meta-is-follow-up').value === 'true';
         const currentQuestionText = document.getElementById('meta-question-text').value;
         formData.append('is_follow_up', currentIsFollowUp);
@@ -359,6 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 // If the entire interview is completed
                 if (data.is_done) {
+                    sessionStorage.removeItem('interview_session_elapsed_' + sessionId); // Clean session timer
                     window.location.href = `/interview/finalize/${sessionId}`;
                 } else {
                     // Update dashboard states dynamically
@@ -377,6 +509,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             progressBadge.innerHTML = `Progress: Question <span id="current-question-num">${data.next_num}</span> of <span id="total-question-num">${data.total_num || 5}</span>`;
                         }
                     }
+                    
+                    // Update hidden metadata and overall progression bar
+                    document.getElementById('meta-current-num').value = data.next_num;
+                    document.getElementById('meta-total-num').value = data.total_num || 5;
+                    updateOverallProgressBar(data.next_num, data.total_num || 5);
                     
                     // Replace active question details dynamically in DOM and inputs
                     document.getElementById('question-text-heading').textContent = data.next_question_text;
