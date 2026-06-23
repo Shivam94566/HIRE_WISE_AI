@@ -52,7 +52,276 @@ def select():
         
         # Select Questions
         question_ids = []
-        if experiment_mode != 'fixed':
+        if interview_type == 'Project':
+            # Option A/B/C/D inputs
+            project_option = request.form.get('project_input_option', 'github')
+            project_text = ""
+            
+            project_inputs = {
+                "option": project_option,
+                "github_url": "",
+                "deployed_url": "",
+                "pdf_filename": "",
+                "manual_title": "",
+                "manual_description": "",
+                "manual_technologies": "",
+                "manual_features": "",
+                "manual_contribution": "",
+                "manual_challenges": ""
+            }
+            
+            if project_option == 'github':
+                github_url = request.form.get('project_github_url', '').strip()
+                project_inputs["github_url"] = github_url
+                project_text = f"GitHub Repository URL: {github_url}"
+            elif project_option == 'deployed':
+                deployed_url = request.form.get('project_deployed_url', '').strip()
+                project_inputs["deployed_url"] = deployed_url
+                project_text = f"Deployed Website URL: {deployed_url}"
+            elif project_option == 'pdf':
+                pdf_file = request.files.get('project_pdf')
+                if pdf_file and pdf_file.filename != '':
+                    filename = secure_filename(pdf_file.filename)
+                    unique_filename = f"user_{current_user.id}_project_{filename}"
+                    save_path = Config.UPLOAD_FOLDER / unique_filename
+                    pdf_file.save(str(save_path))
+                    
+                    project_inputs["pdf_filename"] = filename
+                    
+                    from services.resume_service import ResumeService
+                    resume_service = ResumeService()
+                    pdf_text = resume_service.extract_text(save_path)
+                    project_text = pdf_text
+                else:
+                    flash("Please upload a valid project synopsis PDF.", "warning")
+                    return redirect(url_for('interview.select'))
+            elif project_option == 'manual':
+                title = request.form.get('project_title', '').strip()
+                description = request.form.get('project_description', '').strip()
+                technologies = request.form.get('project_technologies', '').strip()
+                features = request.form.get('project_features', '').strip()
+                contribution = request.form.get('project_contribution', '').strip()
+                challenges = request.form.get('project_challenges', '').strip()
+                
+                project_inputs.update({
+                    "manual_title": title,
+                    "manual_description": description,
+                    "manual_technologies": technologies,
+                    "manual_features": features,
+                    "manual_contribution": contribution,
+                    "manual_challenges": challenges
+                })
+                
+                project_text = f"Project Title: {title}\nDescription: {description}\nTechnologies: {technologies}\nFeatures: {features}\nPersonal Contribution: {contribution}\nChallenges Faced: {challenges}"
+            
+            if not project_text or len(project_text.strip()) < 5:
+                flash("Insufficient project details provided.", "warning")
+                return redirect(url_for('interview.select'))
+
+            # Generate structured understanding JSON
+            project_understanding = {
+                "project_title": "Project",
+                "domain": "Software Engineering",
+                "technologies": [],
+                "architecture": "Standard",
+                "features": [],
+                "probable_modules": [],
+                "probable_challenges": [],
+                "probable_scalability_topics": []
+            }
+            
+            if groq_service.initialized:
+                try:
+                    prompt = f"""
+                    You are a technical interviewer assistant. Read the following project information supplied by the candidate and generate a structured JSON representing the system design and technical aspects:
+                    
+                    {project_text}
+                    
+                    Respond strictly with a JSON object containing the following keys (do not add any markdown blocks or other text):
+                    {{
+                      "project_title": "Title of the project (if unknown, guess from context)",
+                      "domain": "Domain area, e.g. E-commerce, FinTech, IoT, AI, etc.",
+                      "technologies": ["List of all libraries, frameworks, databases, tools detected"],
+                      "architecture": "Short description of the software architecture (e.g. MVC, Microservices, Client-Server, Monolith)",
+                      "features": ["Key functionalities implemented"],
+                      "probable_modules": ["Probable logical components of this project, e.g. User Auth, Database layer, API router"],
+                      "probable_challenges": ["Challenges likely faced, e.g. Syncing state, handling high traffic, parsing PDF content"],
+                      "probable_scalability_topics": ["Suggested topics for scaling this project, e.g. Caching, Load balancing, database indexing"]
+                    }}
+                    """
+                    llm_res = groq_service.client.chat.completions.create(
+                        model=groq_service.model_name,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    llm_text = llm_res.choices[0].message.content.strip()
+                    if llm_text.startswith("```"):
+                        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", llm_text)
+                        if match:
+                            llm_text = match.group(1).strip()
+                    project_understanding = json.loads(llm_text)
+                except Exception as ex:
+                    print(f"[ WARNING ] Failed to generate project understanding via LLM: {ex}")
+                    project_understanding["project_title"] = project_inputs.get("manual_title") or "My Project"
+                    if project_inputs.get("manual_technologies"):
+                        project_understanding["technologies"] = [t.strip() for t in project_inputs["manual_technologies"].split(",") if t.strip()]
+            else:
+                project_understanding["project_title"] = project_inputs.get("manual_title") or "My Project"
+                if project_inputs.get("manual_technologies"):
+                    project_understanding["technologies"] = [t.strip() for t in project_inputs["manual_technologies"].split(",") if t.strip()]
+
+            # Generate questions pool: 21 questions (7 categories * 3 difficulties)
+            questions_pool = []
+            if groq_service.initialized:
+                try:
+                    prompt = f"""
+                    You are a technical interviewer. Read the structured understanding of the candidate's project:
+                    
+                    {json.dumps(project_understanding, indent=2)}
+                    
+                    Generate exactly 21 mock interview questions tailored directly to this project.
+                    For each of the following 7 categories:
+                    - Project Understanding
+                    - Architecture
+                    - Technology Stack
+                    - Implementation
+                    - Challenges
+                    - Scalability
+                    - Contribution Verification
+                    
+                    Generate exactly 3 questions: one Easy, one Medium, and one Hard.
+                    
+                    Respond strictly with a JSON array of 21 objects. Do not add markdown code blocks or any other explanation. Each object must look like:
+                    {{
+                      "text": "The full text of the question (e.g. 'Why did you choose PostgreSQL instead of MongoDB for this domain?')",
+                      "category": "Project",
+                      "skill": "The category name (must be one of: Project Understanding, Architecture, Technology Stack, Implementation, Challenges, Scalability, Contribution Verification)",
+                      "difficulty": "Easy, Medium, or Hard",
+                      "expected_keywords": ["keyword1", "keyword2", "keyword3"]
+                    }}
+                    """
+                    llm_res = groq_service.client.chat.completions.create(
+                        model=groq_service.model_name,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    llm_text = llm_res.choices[0].message.content.strip()
+                    if llm_text.startswith("```"):
+                        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", llm_text)
+                        if match:
+                            llm_text = match.group(1).strip()
+                    questions_pool = json.loads(llm_text)
+                except Exception as ex:
+                    print(f"[ WARNING ] Failed to generate project questions via LLM: {ex}")
+            
+            if not questions_pool:
+                categories_list = [
+                    "Project Understanding",
+                    "Architecture",
+                    "Technology Stack",
+                    "Implementation",
+                    "Challenges",
+                    "Scalability",
+                    "Contribution Verification"
+                ]
+                for cat in categories_list:
+                    for diff in ["Easy", "Medium", "Hard"]:
+                        questions_pool.append({
+                            "text": f"Explain aspects of your project's {cat} at an {diff} level.",
+                            "category": "Project",
+                            "skill": cat,
+                            "difficulty": diff,
+                            "expected_keywords": ["project", cat.lower()]
+                        })
+
+            # Create temporary custom questions in the database
+            project_all_ids = []
+            for q_data in questions_pool:
+                custom_q = Question(
+                    text=q_data["text"],
+                    category='Project',
+                    skill=q_data["skill"],
+                    difficulty=q_data["difficulty"],
+                    expected_keywords=json.dumps(q_data.get("expected_keywords", ["project"]))
+                )
+                db.session.add(custom_q)
+                db.session.commit()
+                project_all_ids.append(custom_q.id)
+
+            # Store project metadata in competency_map
+            comp_map = {
+                "project_inputs": project_inputs,
+                "project_understanding": project_understanding,
+                "project_all_question_ids": project_all_ids,
+                "project_feedback": {}
+            }
+            new_session.competency_map = json.dumps(comp_map)
+            db.session.commit()
+
+            # Now assign question_ids for the session
+            if experiment_mode != 'fixed':
+                # Starting question: Project Understanding, Medium difficulty
+                starting_q = db.session.query(Question).filter(
+                    Question.id.in_(project_all_ids),
+                    Question.skill == 'Project Understanding',
+                    Question.difficulty == 'Medium'
+                ).first()
+                if not starting_q:
+                    starting_q = db.session.query(Question).filter(Question.id.in_(project_all_ids)).first()
+                
+                if starting_q:
+                    question_ids = [starting_q.id]
+                    initial_log = [{
+                        "question_index": 1,
+                        "target_skill": starting_q.skill or "Project Understanding",
+                        "target_difficulty": starting_q.difficulty or "Medium",
+                        "selected_question_id": starting_q.id,
+                        "selected_question_text": starting_q.text[:60] + "...",
+                        "last_score": None,
+                        "reason": "Initial project mock assessment starting question.",
+                        "detected_skills": [
+                            "Project Understanding", "Architecture", "Technology Stack", 
+                            "Implementation", "Challenges", "Scalability", "Contribution Verification"
+                        ],
+                        "skill_priority": [
+                            "Project Understanding", "Architecture", "Technology Stack", 
+                            "Implementation", "Challenges", "Scalability", "Contribution Verification"
+                        ],
+                        "generated_interview_path": [starting_q.skill or "Project Understanding"]
+                    }]
+                    new_session.decision_log = json.dumps(initial_log)
+            else:
+                # Fixed mode: pick 5 questions from the pool, one from each of first 5 categories at Medium difficulty
+                selected_qs = []
+                categories_list = [
+                    "Project Understanding",
+                    "Architecture",
+                    "Technology Stack",
+                    "Implementation",
+                    "Challenges"
+                ]
+                for cat in categories_list:
+                    mq = db.session.query(Question).filter(
+                        Question.id.in_(project_all_ids),
+                        Question.skill == cat,
+                        Question.difficulty == 'Medium'
+                    ).first()
+                    if not mq:
+                        mq = db.session.query(Question).filter(
+                            Question.id.in_(project_all_ids),
+                            Question.skill == cat
+                        ).first()
+                    if mq:
+                        selected_qs.append(mq)
+                
+                if len(selected_qs) < 5:
+                    remaining_qs = db.session.query(Question).filter(
+                        Question.id.in_(project_all_ids),
+                        Question.id.notin_([q.id for q in selected_qs])
+                    ).limit(5 - len(selected_qs)).all()
+                    selected_qs.extend(remaining_qs)
+                    
+                question_ids = [q.id for q in selected_qs]
+
+        elif experiment_mode != 'fixed':
             from services.adaptive_engine import AdaptiveEngine
             adaptive_engine = AdaptiveEngine()
             session_skills = adaptive_engine.get_skills_for_session(new_session)
@@ -120,7 +389,7 @@ def select():
                 questions.extend(pad_qs)
             sampled = questions[:5]
             question_ids = [q.id for q in sampled]
-            
+
         elif interview_type == 'Resume':
             # Retrieve questions from the database
             from models.resume_upload import ResumeUpload
@@ -663,6 +932,120 @@ def finalize(session_id):
     interview_sess.professionalism_score = round(prof_score, 1)
     interview_sess.confidence_score = round(conf_score, 1)
     interview_sess.overall_score = round(overall_score, 1)
+    
+    if interview_sess.interview_type == 'Project':
+        category_scores = {}
+        from models.skill_state import SessionSkillState
+        states = {s.skill_name: s.score for s in SessionSkillState.query.filter_by(session_id=session_id).all()}
+        
+        response_scores = {}
+        for r in responses:
+            q = db.session.get(Question, r.question_id) if r.question_id else None
+            if q and q.skill:
+                if q.skill not in response_scores:
+                    response_scores[q.skill] = []
+                response_scores[q.skill].append(r.answer_score)
+        
+        categories_list = [
+            "Project Understanding",
+            "Architecture",
+            "Technology Stack",
+            "Implementation",
+            "Challenges",
+            "Scalability",
+            "Contribution Verification"
+        ]
+        
+        for cat in categories_list:
+            if cat in states:
+                category_scores[cat] = states[cat]
+            elif cat in response_scores:
+                category_scores[cat] = sum(response_scores[cat]) / len(response_scores[cat])
+            else:
+                category_scores[cat] = 50.0
+                
+        project_scores = {
+            "Project Understanding Score": round(category_scores.get("Project Understanding", 50.0), 1),
+            "Architecture Score": round(category_scores.get("Architecture", 50.0), 1),
+            "Technology Knowledge Score": round(category_scores.get("Technology Stack", 50.0), 1),
+            "Implementation Depth Score": round(category_scores.get("Implementation", 50.0), 1),
+            "Problem Solving Score": round((category_scores.get("Challenges", 50.0) + category_scores.get("Scalability", 50.0)) / 2.0, 1),
+            "Communication Score": round(comm_score, 1),
+            "Confidence Score": round(conf_score, 1)
+        }
+        
+        project_feedback = {
+            "scores": project_scores,
+            "strengths": [],
+            "weaknesses": [],
+            "improvements": [],
+            "revision_topics": [],
+            "presentation_tips": []
+        }
+        
+        if groq_service.initialized:
+            try:
+                transcript_summary = ""
+                for idx, r in enumerate(responses):
+                    transcript_summary += f"Q: {r.question_text}\nA: {r.transcript or ''}\n\n"
+                    
+                prompt = f"""
+                You are a senior technical recruiter evaluating a candidate's Project Interview.
+                Here is the transcript of their interview:
+                {transcript_summary}
+                
+                Provide structured feedback on their project presentation. Respond strictly with a JSON object containing the following keys (do not add any markdown blocks or other text):
+                {{
+                  "strengths": ["List of strengths identified in their project understanding, design, or implementation depth"],
+                  "weaknesses": ["List of gaps, missing details, or weaknesses"],
+                  "improvements": ["List of actionable steps to improve the project design or code"],
+                  "revision_topics": ["Specific technologies or architecture topics they should revise"],
+                  "presentation_tips": ["Actionable tips for presenting this project better in real recruiter rounds"]
+                }}
+                """
+                llm_res = groq_service.client.chat.completions.create(
+                    model=groq_service.model_name,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                llm_text = llm_res.choices[0].message.content.strip()
+                if llm_text.startswith("```"):
+                    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", llm_text)
+                    if match:
+                        llm_text = match.group(1).strip()
+                parsed_feedback = json.loads(llm_text)
+                project_feedback.update(parsed_feedback)
+            except Exception as ex:
+                print(f"[ WARNING ] Failed to generate project feedback: {ex}")
+                
+        if not project_feedback.get("strengths"):
+            project_feedback["strengths"] = [
+                "Demonstrated basic understanding of project features.",
+                "Mentioned key technologies used in implementation."
+            ]
+            project_feedback["weaknesses"] = [
+                "Could provide deeper details on system architecture decisions.",
+                "Could clarify direct personal contribution vs template code."
+            ]
+            project_feedback["improvements"] = [
+                "Incorporate comprehensive logging and error handling.",
+                "Create a clear architectural diagram representing data flow."
+            ]
+            project_feedback["revision_topics"] = [
+                "Database design and normalization rules.",
+                "API design guidelines and authentication protocol flow."
+            ]
+            project_feedback["presentation_tips"] = [
+                "Use the STAR method to describe how you tackled engineering challenges.",
+                "Be ready to explain why you chose your specific technology stack over alternatives."
+            ]
+            
+        try:
+            curr_map = json.loads(interview_sess.competency_map or '{}')
+        except Exception:
+            curr_map = {}
+        curr_map["project_feedback"] = project_feedback
+        interview_sess.competency_map = json.dumps(curr_map)
+        db.session.commit()
     
     # 6. Generate Explainable Feedback Summary & Suggestions via Groq
     if groq_service.initialized:

@@ -9,9 +9,24 @@ from services.email_service import EmailService
 
 auth_bp = Blueprint('auth', __name__)
 
+# Verify Supabase configuration is loaded correctly from environment
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY') or os.environ.get('SUPABASE_KEY')
+
+if not SUPABASE_URL:
+    print("[WARNING] SUPABASE_URL is missing from environment. Supabase integration may fail.")
+else:
+    print(f"[INFO] SUPABASE_URL loaded from environment: {SUPABASE_URL}")
+
+if not SUPABASE_ANON_KEY:
+    print("[WARNING] SUPABASE_ANON_KEY is missing from environment. Supabase REST API requests will fail.")
+else:
+    masked_key = SUPABASE_ANON_KEY[:10] + "..." if len(SUPABASE_ANON_KEY) > 10 else "loaded"
+    print(f"[INFO] SUPABASE_ANON_KEY loaded from environment: {masked_key}")
+
 def verify_supabase_password(email, password):
-    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
-    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+    supabase_url = SUPABASE_URL or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    supabase_key = SUPABASE_ANON_KEY
     
     headers = {}
     if supabase_key:
@@ -31,8 +46,8 @@ def verify_supabase_password(email, password):
         return False, str(e)
 
 def signup_supabase_user(email, password):
-    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
-    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+    supabase_url = SUPABASE_URL or "https://bkdhoauhxavbernvkvgn.supabase.co"
+    supabase_key = SUPABASE_ANON_KEY
     
     headers = {}
     if supabase_key:
@@ -468,15 +483,16 @@ def reset_password(token):
             
     return render_template('reset_password.html', token=token)
 
-@auth_bp.route('/auth/oauth/<provider>')
+@auth_bp.route('/auth/oauth/google', defaults={'provider': 'google'})
+@auth_bp.route('/auth/oauth/github', defaults={'provider': 'github'})
 def oauth_login(provider):
-    if provider not in ['google', 'github', 'linkedin']:
-        flash('Invalid provider.', 'danger')
+    if not SUPABASE_URL:
+        print("[WARNING] SUPABASE_URL is missing. OAuth redirect cannot be performed.")
+        flash('OAuth is not configured on this server.', 'danger')
         return redirect(url_for('auth.login'))
-    
-    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
+        
     callback_url = url_for('auth.oauth_callback', _external=True)
-    authorize_url = f"{supabase_url}/auth/v1/authorize?provider={provider}&redirect_to={callback_url}"
+    authorize_url = f"{SUPABASE_URL}/auth/v1/authorize?provider={provider}&redirect_to={callback_url}"
     return redirect(authorize_url)
 
 @auth_bp.route('/auth/callback')
@@ -488,37 +504,58 @@ def token_login():
     data = request.get_json() or {}
     access_token = data.get('access_token')
     if not access_token:
+        print("[ERROR] Token login attempt with missing access token.")
         return jsonify({"success": False, "error": "Access token missing."}), 400
         
-    supabase_url = os.environ.get('SUPABASE_URL') or "https://bkdhoauhxavbernvkvgn.supabase.co"
-    
+    if not SUPABASE_URL:
+        print("[WARNING] SUPABASE_URL is missing. Token validation failed.")
+        return jsonify({"success": False, "error": "OAuth configuration (SUPABASE_URL) is missing on the server."}), 500
+        
+    if not SUPABASE_ANON_KEY:
+        print("[WARNING] SUPABASE_ANON_KEY is missing. Token validation failed.")
+        return jsonify({"success": False, "error": "OAuth configuration (SUPABASE_ANON_KEY) is missing on the server."}), 500
+        
     headers = {
-        "Authorization": f"Bearer {access_token}"
+        "Authorization": f"Bearer {access_token}",
+        "apikey": SUPABASE_ANON_KEY
     }
-    
-    supabase_key = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
-    if supabase_key:
-        headers["apikey"] = supabase_key
         
     try:
-        response = requests.get(f"{supabase_url}/auth/v1/user", headers=headers, timeout=10)
+        response = requests.get(f"{SUPABASE_URL}/auth/v1/user", headers=headers, timeout=10)
         if response.status_code != 200:
+            print(f"[ERROR] Supabase token validation failed. Status: {response.status_code}, Body: {response.text}")
             return jsonify({"success": False, "error": "Invalid token or user not authenticated by Supabase."}), 401
             
         user_data = response.json()
         email = user_data.get("email")
         if not email:
+            print("[ERROR] Email address not found in Supabase user token payload.")
             return jsonify({"success": False, "error": "Email address not found in Supabase token payload."}), 400
+            
+        # Parse provider from app_metadata.provider or identities[].provider
+        app_metadata = user_data.get("app_metadata", {})
+        provider = app_metadata.get("provider")
+        if not provider:
+            identities = user_data.get("identities", [])
+            if identities and isinstance(identities, list):
+                provider = identities[0].get("provider")
+        if not provider or provider == 'email':
+            provider = 'google' # Default/fallback if not resolvable
             
         # Find user in our local DB or create one
         user = db.session.query(User).filter_by(email=email).first()
         if not user:
-            username = email.split('@')[0]
-            # Check duplicate username
-            dup_username = db.session.query(User).filter_by(username=username).first()
-            if dup_username:
-                import random
-                username = f"{username}_{random.randint(1000, 9999)}"
+            # Generate username safely
+            base_username = email.split('@')[0]
+            # Ensure base fits within 64 chars even after adding suffixes
+            base_username = base_username[:55]
+            username = base_username
+            
+            # loop to ensure uniqueness
+            suffix_counter = 1
+            while db.session.query(User).filter_by(username=username).first():
+                username = f"{base_username}_{suffix_counter}"
+                suffix_counter += 1
                 
             from models.role import Role
             user_role = Role.query.filter_by(name='USER').first()
@@ -535,17 +572,18 @@ def token_login():
             db.session.add(user)
             db.session.commit()
             
-            # Send welcome email and notify admin as done in standard signup
+            # Trigger Admin Notification and Welcome Email to Candidate
             try:
                 # Trigger Admin Notification
                 from models.admin_notification import AdminNotification
                 reg_notif = AdminNotification(
                     type='registration',
-                    message=f"New social login user registered: {username} ({email})"
+                    message=f"New social login user registered: {username} ({email}) via {provider}"
                 )
                 db.session.add(reg_notif)
                 db.session.commit()
                 
+                # Send Welcome Email
                 dashboard_url = url_for('dashboard.home', _external=True)
                 EmailService.send_email_async(
                     to_email=user.email,
@@ -556,10 +594,32 @@ def token_login():
                     event_type="welcome",
                     ip_address=request.remote_addr
                 )
+                
+                # Send Admin Notification Email
+                from flask import current_app
+                admin_url = url_for('admin.dashboard', _external=True)
+                EmailService.send_email_async(
+                    to_email=current_app.config.get('ADMIN_EMAIL', 'admin@hirewise.ai'),
+                    subject="Admin Alert: New User Registration",
+                    template_name="admin_notification.html",
+                    context={
+                        "notification_type": "registration",
+                        "message": f"New social login user registered: {username} ({email}) via {provider}",
+                        "timestamp": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                        "username": username,
+                        "admin_url": admin_url
+                    },
+                    event_type="admin_notification",
+                    ip_address=request.remote_addr
+                )
             except Exception as e_notify:
-                print(f"Social login notification warning: {e_notify}")
+                print(f"[WARNING] Social login notification failed: {e_notify}")
+        else:
+            # Existing user found by email - backward compatible identification
+            pass
         
         if not user.is_active:
+            print(f"[WARNING] Inactive user email: {email} tried to login via OAuth.")
             return jsonify({"success": False, "error": "Your account has been suspended."}), 403
             
         login_user(user, remember=True)
@@ -577,10 +637,10 @@ def token_login():
             db.session.add(session_log)
             db.session.commit()
         except Exception as e_sess:
-            print(f"Error logging session: {e_sess}")
+            print(f"[ERROR] Error logging user session: {e_sess}")
             db.session.rollback()
             
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Token login error: {e}")
+        print(f"[ERROR] Token login exception: {e}")
         return jsonify({"success": False, "error": str(e)}), 500

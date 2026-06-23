@@ -109,13 +109,11 @@ def init_db(app):
                 ("security_alerts_enabled", "BOOLEAN DEFAULT TRUE"),
                 ("interview_reports_enabled", "BOOLEAN DEFAULT TRUE"),
                 ("resume_notifications_enabled", "BOOLEAN DEFAULT TRUE"),
-                ("marketing_emails_enabled", "BOOLEAN DEFAULT FALSE")
+                ("marketing_emails_enabled", "BOOLEAN DEFAULT FALSE"),
+                ("role", "VARCHAR(50) DEFAULT 'user'")
             ]
             for col_name, col_type in preferences_cols:
                 add_column_if_missing("users", col_name, col_type)
-            
-            # Add role column
-            add_column_if_missing("users", "role", "VARCHAR(50) DEFAULT 'user'")
 
             # 6. chat_messages table memory columns
             chat_msg_cols = [

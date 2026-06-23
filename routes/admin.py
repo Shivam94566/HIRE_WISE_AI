@@ -244,7 +244,7 @@ def dashboard():
                     pass
             
             for key in comp_map.keys():
-                if key in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+                if key in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis", "project_inputs", "project_understanding", "project_feedback", "project_all_question_ids"]:
                     continue
                 skills_counts[key] = skills_counts.get(key, 0) + 1
                 
@@ -725,7 +725,7 @@ def ai_report(session_id):
     # Extract evaluated skills (exclude the special metadata keys)
     skills = {}
     for key, val in comp_map.items():
-        if key not in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+        if key not in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis", "project_inputs", "project_understanding", "project_feedback", "project_all_question_ids"]:
             skills[key] = val
             
     # Resume Inflation Analysis details

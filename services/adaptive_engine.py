@@ -138,7 +138,7 @@ class AdaptiveEngine:
             explain_log = []
             
             level_values = {"Beginner": 1, "Intermediate": 2, "Advanced": 3, "Expert": 3}
-            evaluated_skills = [k for k in final_map.keys() if k not in ("resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis")]
+            evaluated_skills = [k for k in final_map.keys() if k not in ("resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis", "project_inputs", "project_understanding", "project_feedback", "project_all_question_ids")]
             
             total_mismatch_pct = 0.0
             matched_skills_count = 0
@@ -234,6 +234,16 @@ class AdaptiveEngine:
         If a resume is uploaded, matches and prioritizes skills, technologies, and projects from the resume.
         Otherwise falls back to ['Python', 'DSA', 'DBMS'].
         """
+        if session and session.interview_type == 'Project':
+            return [
+                "Project Understanding",
+                "Architecture",
+                "Technology Stack",
+                "Implementation",
+                "Challenges",
+                "Scalability",
+                "Contribution Verification"
+            ]
         # Query distinct skills present in the Question database to target only what we can test
         distinct_db_skills = db.session.query(Question.skill).filter(
             Question.skill.isnot(None), Question.skill != ''
@@ -361,6 +371,9 @@ class AdaptiveEngine:
         exp_text = (resume.experience or "").lower()
         full_text = (resume.parsed_text or "").lower()
         
+        if not skill_name:
+            return base_score, base_uncertainty
+            
         skill_lower = skill_name.lower()
         relevance_score = 0
         
@@ -942,7 +955,13 @@ class AdaptiveEngine:
                     except Exception as ex:
                         print(f"[ WARNING ] LLM question adaptation guidance failed: {ex}. Using rule-based fallback.")
 
-            q_query = Question.query.filter_by(skill=target_skill, difficulty=target_difficulty)
+            c_map = self._get_competency_map_metadata(session.id)
+            project_all_ids = c_map.get("project_all_question_ids", []) if session.interview_type == 'Project' else []
+
+            if session.interview_type == 'Project':
+                q_query = Question.query.filter(Question.id.in_(project_all_ids)).filter_by(skill=target_skill, difficulty=target_difficulty)
+            else:
+                q_query = Question.query.filter_by(skill=target_skill, difficulty=target_difficulty)
             if asked_ids:
                 q_query = q_query.filter(Question.id.notin_(asked_ids))
             candidate_qs = q_query.all()
@@ -951,7 +970,10 @@ class AdaptiveEngine:
                 fallback_difficulties = ["Medium", "Easy", "Hard"]
                 fallback_difficulties.remove(target_difficulty)
                 for f_diff in fallback_difficulties:
-                    q_query_fb = Question.query.filter_by(skill=target_skill, difficulty=f_diff)
+                    if session.interview_type == 'Project':
+                        q_query_fb = Question.query.filter(Question.id.in_(project_all_ids)).filter_by(skill=target_skill, difficulty=f_diff)
+                    else:
+                        q_query_fb = Question.query.filter_by(skill=target_skill, difficulty=f_diff)
                     if asked_ids:
                         q_query_fb = q_query_fb.filter(Question.id.notin_(asked_ids))
                     candidate_qs = q_query_fb.all()
@@ -961,7 +983,10 @@ class AdaptiveEngine:
                         break
                         
             if not candidate_qs:
-                q_query_fb = Question.query.filter(Question.skill.isnot(None))
+                if session.interview_type == 'Project':
+                    q_query_fb = Question.query.filter(Question.id.in_(project_all_ids))
+                else:
+                    q_query_fb = Question.query.filter(Question.skill.isnot(None))
                 if asked_ids:
                     q_query_fb = q_query_fb.filter(Question.id.notin_(asked_ids))
                 candidate_qs = q_query_fb.all()
@@ -1013,7 +1038,12 @@ class AdaptiveEngine:
         asked_questions = Question.query.filter(Question.id.in_(asked_ids)).all() if asked_ids else []
         asked_subtopics = {q.subtopic for q in asked_questions if q.subtopic}
         
-        all_qs = Question.query.filter(Question.skill.isnot(None)).all()
+        if session.interview_type == 'Project':
+            c_map = self._get_competency_map_metadata(session.id)
+            project_all_ids = c_map.get("project_all_question_ids", [])
+            all_qs = Question.query.filter(Question.id.in_(project_all_ids)).all()
+        else:
+            all_qs = Question.query.filter(Question.skill.isnot(None)).all()
         candidate_qs = [q for q in all_qs if q.id not in asked_ids]
         
         if not candidate_qs:
@@ -1392,4 +1422,11 @@ class AdaptiveEngine:
         final_map["multimodal_convergence_telemetry"] = telemetry_list
         final_map["multimodal_convergence_analysis"] = convergence_analysis
         final_map = self._add_resume_inflation_analysis(session, final_map)
+        
+        # Preserve project-specific keys
+        if isinstance(c_map, dict):
+            for key in ["project_inputs", "project_understanding", "project_all_question_ids", "project_feedback"]:
+                if key in c_map:
+                    final_map[key] = c_map[key]
+                    
         return final_map

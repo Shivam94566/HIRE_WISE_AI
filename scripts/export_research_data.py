@@ -104,7 +104,7 @@ def flatten_json_telemetry(sessions_df):
             try:
                 map_data = json.loads(comp_map)
                 for skill_name, meta in map_data.items():
-                    if skill_name in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis"]:
+                    if skill_name in ["resume_inflation_analysis", "multimodal_convergence_telemetry", "multimodal_convergence_analysis", "project_inputs", "project_understanding", "project_feedback", "project_all_question_ids"]:
                         continue
                     competency_records.append({
                         "session_id": sess_id,
