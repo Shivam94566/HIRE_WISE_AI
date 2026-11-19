@@ -149,9 +149,9 @@ def select():
                       "probable_scalability_topics": ["Suggested topics for scaling this project, e.g. Caching, Load balancing, database indexing"]
                     }}
                     """
-                    llm_res = groq_service.client.chat.completions.create(
-                        model=groq_service.model_name,
-                        messages=[{"role": "user", "content": prompt}]
+                    llm_res = groq_service._create_chat_completion(
+                        messages=[{"role": "user", "content": prompt}],
+                        json_mode=True
                     )
                     llm_text = llm_res.choices[0].message.content.strip()
                     if llm_text.startswith("```"):
@@ -199,9 +199,9 @@ def select():
                       "expected_keywords": ["keyword1", "keyword2", "keyword3"]
                     }}
                     """
-                    llm_res = groq_service.client.chat.completions.create(
-                        model=groq_service.model_name,
-                        messages=[{"role": "user", "content": prompt}]
+                    llm_res = groq_service._create_chat_completion(
+                        messages=[{"role": "user", "content": prompt}],
+                        json_mode=True
                     )
                     llm_text = llm_res.choices[0].message.content.strip()
                     if llm_text.startswith("```"):
@@ -1003,9 +1003,9 @@ def finalize(session_id):
                   "presentation_tips": ["Actionable tips for presenting this project better in real recruiter rounds"]
                 }}
                 """
-                llm_res = groq_service.client.chat.completions.create(
-                    model=groq_service.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                llm_res = groq_service._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=True
                 )
                 llm_text = llm_res.choices[0].message.content.strip()
                 if llm_text.startswith("```"):
@@ -1074,9 +1074,9 @@ def finalize(session_id):
             }}
             """
             
-            response = groq_service.client.chat.completions.create(
-                model=groq_service.model_name,
-                messages=[{"role": "user", "content": prompt}]
+            response = groq_service._create_chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                json_mode=True
             )
             resp_text = response.choices[0].message.content.strip()
             

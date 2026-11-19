@@ -1,7 +1,22 @@
-﻿venv/
+venv/
 __pycache__/
 *.pyc
 .env
 database/*.db
 database/backups/
 uploads/
+
+# MLOps artifacts and tracking databases
+mlflow.db
+mlruns/
+mlartifacts/
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+.venv/
+venv/
+.DS_Store

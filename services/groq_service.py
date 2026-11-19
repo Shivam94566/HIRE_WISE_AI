@@ -15,7 +15,7 @@ except ImportError:
 class GroqService:
     def __init__(self):
         self.api_key = Config.GROQ_API_KEY
-        self.model_name = "llama-3.3-70b-versatile"
+        self.model_name = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
         
         # 1. Print Key Detection Logs
         if self.api_key:
@@ -27,21 +27,43 @@ class GroqService:
         self.initialized = False
         if GROQ_AVAILABLE and self.api_key:
             try:
-                self.client = Groq(api_key=self.api_key, max_retries=0)
-                # Verify Groq Integration: Send a test prompt
-                test_response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": "Say only the word CONNECTED."}]
-                )
-                test_text = test_response.choices[0].message.content.strip()
-                if "CONNECTED" in test_text.upper():
-                    self.initialized = True
-                    print("[INFO] GroqService initialized successfully.")
-                else:
-                    raise Exception(f"Unexpected verification output: {test_text}")
+                self.client = Groq(api_key=self.api_key, max_retries=2)
+                self.initialized = True
+                print("[INFO] GroqService initialized successfully.")
             except Exception as e:
                 print(f"[ERROR] GroqService initialization failed:\n{e}")
                 self.initialized = False
+
+    def _create_chat_completion(self, messages, json_mode=False):
+        """Calls Groq API with automatic fallback across available models."""
+        models_to_try = [
+            self.model_name,
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b"
+        ]
+        unique_models = list(dict.fromkeys(models_to_try))
+        
+        last_error = None
+        for m in unique_models:
+            kwargs = {
+                "model": m,
+                "messages": messages,
+            }
+            if json_mode:
+                kwargs["response_format"] = {"type": "json_object"}
+            try:
+                return self.client.chat.completions.create(**kwargs)
+            except Exception as e:
+                err_str = str(e)
+                if "401" in err_str or "invalid_api_key" in err_str:
+                    print("[ERROR] Groq Authentication Failed: GROQ_API_KEY in .env is invalid or expired.")
+                    raise e
+                last_error = e
+                print(f"[INFO] Groq model '{m}' failed ({e}). Trying next model...")
+                continue
+                
+        raise last_error
 
     def _log_api_call(self, provider, endpoint, response_time, is_success, status_code=200, response_payload=None):
         """Helper to write diagnostic API logs to database"""
@@ -106,9 +128,9 @@ class GroqService:
                 }}
                 """
                 
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                response = self._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=False
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -186,9 +208,9 @@ class GroqService:
                 }}
                 """
                 
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                response = self._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=False
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -343,9 +365,9 @@ class GroqService:
                 Do not add any greetings or conversational introductory text, just output the follow-up question.
                 """
                 
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                response = self._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=False
                 )
                 duration = time.time() - start_time
                 self._log_api_call(provider="groq", endpoint="generate_follow_up", response_time=duration, is_success=True)
@@ -397,9 +419,9 @@ class GroqService:
                   "Question 2 based on skill Y..."
                 ]
                 """
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                response = self._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=False
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -584,9 +606,9 @@ class GroqService:
                 
                 Do not include markdown code blocks or any introductory/explanatory text. Respond only with the JSON object.
                 """
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                response = self._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=False
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()

@@ -58,7 +58,7 @@ class MentorService:
     def __init__(self):
         self.groq_key = Config.GROQ_API_KEY
         self.claude_key = Config.CLAUDE_API_KEY
-        self.model_name = "llama-3.3-70b-versatile"
+        self.model_name = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
         
         # 1. Print Key Detection Logs
         if self.groq_key:
@@ -521,17 +521,21 @@ Classified User Intent: {intent}
                             messages=messages
                         )
                         model_used = self.model_name
-                    except Exception as rate_err:
-                        error_str = str(rate_err)
-                        if "429" in error_str or "rate_limit" in error_str:
-                            print("[INFO] Rate limit hit on 70B model. Retrying with llama-3.1-8b-instant...")
+                    except Exception as model_err:
+                        error_str = str(model_err)
+                        print(f"[INFO] Primary model error ({error_str}). Retrying with openai/gpt-oss-120b...")
+                        try:
                             response = self.client.chat.completions.create(
-                                model="llama-3.1-8b-instant",
+                                model="openai/gpt-oss-120b",
                                 messages=messages
                             )
-                            model_used = "llama-3.1-8b-instant"
-                        else:
-                            raise rate_err
+                            model_used = "openai/gpt-oss-120b"
+                        except Exception:
+                            response = self.client.chat.completions.create(
+                                model="openai/gpt-oss-20b",
+                                messages=messages
+                            )
+                            model_used = "openai/gpt-oss-20b"
                             
                     prompt_tokens = response.usage.prompt_tokens if hasattr(response, 'usage') and response.usage else 0
                     reply_text = response.choices[0].message.content.strip()

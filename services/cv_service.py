@@ -2,25 +2,26 @@ import os
 import random
 from config import Config
 
-# Try to import cv2 and mediapipe dynamically
+# Try to import cv2 dynamically
 mp_face_mesh = None
 CV_AVAILABLE = False
 try:
     import cv2
     import numpy as np
-    import mediapipe as mp
     CV_AVAILABLE = True
 except ImportError:
-    print("OpenCV or MediaPipe not installed. Eye contact tracking will run in Fallback mode.")
+    print("OpenCV not installed. Eye contact tracking will run in Fallback mode.")
 
 class CVService:
     def __init__(self):
         self.mp_face_mesh = None
-        if CV_AVAILABLE:
+        if CV_AVAILABLE and not os.environ.get("DISABLE_MEDIAPIPE"):
             try:
-                self.mp_face_mesh = mp_face_mesh
+                # Lazy import to prevent hangs on startup
+                import mediapipe as mp
+                self.mp_face_mesh = mp.solutions.face_mesh
             except Exception as e:
-                print(f"Error initializing MediaPipe: {e}")
+                print(f"MediaPipe not available or skipped: {e}")
                 self.mp_face_mesh = None
 
     def analyze_video(self, video_path):

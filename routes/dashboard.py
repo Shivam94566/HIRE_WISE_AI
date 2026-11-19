@@ -7,12 +7,8 @@ from database.connection import db
 from models.interview import InterviewSession
 from models.response import Response
 
-try:
-    from sklearn.tree import DecisionTreeClassifier
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
-    print("WARNING: scikit-learn is not installed. Dashboard ML features will run in fallback mode.")
+SKLEARN_AVAILABLE = None
+ml_classifier = None
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -21,7 +17,15 @@ def train_readiness_classifier():
     Creates a synthetic dataset of mock interview scores and trains a 
     Decision Tree Classifier to predict placement readiness categories.
     """
-    if not SKLEARN_AVAILABLE:
+    global SKLEARN_AVAILABLE, ml_classifier
+    if ml_classifier is not None:
+        return ml_classifier
+    try:
+        from sklearn.tree import DecisionTreeClassifier
+        SKLEARN_AVAILABLE = True
+    except Exception as e:
+        SKLEARN_AVAILABLE = False
+        print(f"scikit-learn not loaded: {e}. Dashboard ML features will run in fallback mode.")
         return None
         
     # Columns: Comm, Tech, Quality, Prof, Confidence (Gaze/Speech)
@@ -67,8 +71,7 @@ def train_readiness_classifier():
     clf.fit(X, y)
     return clf
 
-# Load readiness model
-ml_classifier = train_readiness_classifier()
+# Readiness model is initialized lazily when requested via train_readiness_classifier()
 
 @dashboard_bp.route('/')
 def index():

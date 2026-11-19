@@ -91,7 +91,14 @@ class Config:
         SQLALCHEMY_DATABASE_URI = db_url
 
     else:
-        raise ValueError("[ERROR] DATABASE_URL is missing. SQLite fallback is disabled by configuration rules.")
+        print("DATABASE_URL not found. Falling back to SQLite.")
+
+        db_abs_path = BASE_DIR / "database" / "hirewise.db"
+        db_abs_path.parent.mkdir(parents=True, exist_ok=True)
+
+        SQLALCHEMY_DATABASE_URI = (
+            f"sqlite:///{db_abs_path.resolve().as_posix()}"
+        )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -105,7 +112,7 @@ class Config:
     MAX_CONTENT_LENGTH = 30 * 1024 * 1024
 
     # API Keys
-    GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip().strip("\"'")
     CLAUDE_API_KEY = (
         os.environ.get("CLAUDE_API_KEY")
         or os.environ.get("ANTHROPIC_API_KEY")
