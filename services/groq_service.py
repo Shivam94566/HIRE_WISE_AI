@@ -34,8 +34,8 @@ class GroqService:
                 print(f"[ERROR] GroqService initialization failed:\n{e}")
                 self.initialized = False
 
-    def _create_chat_completion(self, messages, json_mode=False):
-        """Calls Groq API with automatic fallback across available models."""
+    def _create_chat_completion(self, messages, json_mode=False, temperature=0.2, max_tokens=None):
+        """Calls Groq API with automatic fallback across available models, task-tuned temperature, and token controls."""
         models_to_try = [
             self.model_name,
             "qwen/qwen3.8-27b",
@@ -49,7 +49,10 @@ class GroqService:
             kwargs = {
                 "model": m,
                 "messages": messages,
+                "temperature": temperature,
             }
+            if max_tokens:
+                kwargs["max_tokens"] = max_tokens
             if json_mode:
                 kwargs["response_format"] = {"type": "json_object"}
             try:
@@ -91,7 +94,7 @@ class GroqService:
     def evaluate_answer(self, question, answer, category, expected_keywords=None):
         """
         Evaluates an answer based on Relevance, Clarity, Completeness, Structure, Professionalism.
-        Returns a dict with scores (out of 10) and feedback.
+        Provides strict, objective engineering assessment with no score inflation.
         """
         if not answer or len(answer.strip()) < 5:
             return self._generate_empty_evaluation()
@@ -99,38 +102,53 @@ class GroqService:
         if self.initialized:
             start_time = time.time()
             try:
+                keywords_context = f"Expected Core Technical Concepts: {expected_keywords}" if expected_keywords else "Expected: Accurate domain terminology and mechanisms."
                 prompt = f"""
-                You are an expert interviewer evaluating a candidate's answer for a {category} mock interview question.
-                
-                Question: "{question}"
-                Candidate's Answer: "{answer}"
-                
-                Evaluate the answer across the following 5 criteria:
-                1. Relevance (Is the answer answering the specific question asked?)
-                2. Clarity (Is it easy to understand, articulate, and free of confusion?)
-                3. Completeness (Does it cover all aspects of the question?)
-                4. Structure (Is it logically structured, e.g., introduction, context, action, result?)
-                5. Professionalism (Does it use appropriate professional tone and industry terms?)
-                
-                For each criteria, assign a score out of 10 (decimal values allowed).
-                Also provide a comprehensive, explainable feedback summary (highlighting strengths and reasons for scores) and actionable recommendations for improvement.
-                
-                Respond ONLY with a valid JSON object matching the schema below. Do not wrap the JSON in markdown code blocks or add any other text.
-                
-                {{
-                  "relevance": 0.0,
-                  "clarity": 0.0,
-                  "completeness": 0.0,
-                  "structure": 0.0,
-                  "professionalism": 0.0,
-                  "feedback": "A detailed explanation of the scores...",
-                  "suggestions": "Actionable, specific suggestions for improvement..."
-                }}
-                """
+You are an expert technical interviewer and senior engineering hiring manager conducting an objective, rigorous assessment of a candidate's answer.
+
+Interview Context:
+- Category: {category}
+- Question: "{question}"
+- Candidate's Actual Answer: "{answer}"
+- {keywords_context}
+
+Evaluate the candidate's response with strict engineering objectivity across these 5 criteria:
+1. relevance (0.0 to 10.0): Did the candidate answer the specific question asked? Penalize tangential filler or memorized unrelated scripts.
+2. clarity (0.0 to 10.0): Is the explanation crisp, logically articulated, and free from confusing ambiguity?
+3. completeness (0.0 to 10.0): Are essential technical components, internal mechanisms, or trade-offs covered?
+4. structure (0.0 to 10.0): Does the response follow a coherent structure (core concept definition -> underlying mechanics -> practical trade-offs/applications)?
+5. professionalism (0.0 to 10.0): Does the candidate use industry-standard engineering terminology and a professional tone?
+
+Strict Scoring Calibration:
+- 9.0–10.0: Staff/Senior level. Flawless, precise, deep mechanism knowledge and trade-offs.
+- 7.5–8.9: Strong, technically sound, minor omissions in secondary edge cases.
+- 5.0–7.4: Fair/Average. Knows basic definition but lacks underlying depth or relies on vague generalities.
+- 3.0–4.9: Weak. Buzzword-heavy, contains notable technical inaccuracies or major omissions.
+- 1.0–2.9: Poor. Factually wrong, completely evasive, or empty.
+
+Important Rules:
+- Never fabricate statements. Evaluate strictly what the candidate stated.
+- Do not inflate scores. Concise answers that are technically complete should score high. Lengthy answers with fluff should NOT score high.
+- The "feedback" must explicitly state: (a) what was answered correctly, (b) specific technical gaps or inaccuracies, and (c) an example of how a senior engineer would succinctly answer this.
+- The "suggestions" must provide 2-3 specific, actionable technical takeaways.
+
+Respond ONLY with a valid JSON object matching this exact schema:
+{{
+  "relevance": 0.0,
+  "clarity": 0.0,
+  "completeness": 0.0,
+  "structure": 0.0,
+  "professionalism": 0.0,
+  "feedback": "Detailed, constructive feedback outlining strengths, inaccuracies, and senior-level insights...",
+  "suggestions": "1. Specific action point 1...\\n2. Specific action point 2..."
+}}
+"""
                 
                 response = self._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=False
+                    json_mode=False,
+                    temperature=0.15,
+                    max_tokens=900
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -144,6 +162,11 @@ class GroqService:
                 eval_data = json.loads(response_text)
                 required_keys = ["relevance", "clarity", "completeness", "structure", "professionalism", "feedback", "suggestions"]
                 if all(k in eval_data for k in required_keys):
+                    # Sanitize suggestions to string if returned as list
+                    if isinstance(eval_data["suggestions"], list):
+                        eval_data["suggestions"] = "\n".join(f"{i+1}. {s}" for i, s in enumerate(eval_data["suggestions"]))
+                    for k in ["relevance", "clarity", "completeness", "structure", "professionalism"]:
+                        eval_data[k] = round(float(eval_data[k]), 1)
                     self._log_api_call(provider="groq", endpoint="evaluate_answer", response_time=duration, is_success=True)
                     return eval_data
             except Exception as e:
@@ -156,8 +179,8 @@ class GroqService:
 
     def evaluate_answer_adaptive(self, question, answer, category, skill=None, expected_keywords=None):
         """
-        Evaluates an answer for adaptive technical interviews.
-        Grades 6 research-grade metrics.
+        Evaluates an answer for adaptive technical interviews with research-grade objectivity.
+        Grades 6 research-grade metrics without artificial inflation.
         """
         if not answer or len(answer.strip()) < 5:
             return {
@@ -176,41 +199,56 @@ class GroqService:
             start_time = time.time()
             try:
                 skill_str = f" for the skill '{skill}'" if skill else ""
+                keywords_context = f"Target Domain Keywords: {expected_keywords}" if expected_keywords else ""
                 prompt = f"""
-                You are an expert technical interviewer evaluating a candidate's answer for a {category} mock interview question{skill_str}.
-                
-                Question: "{question}"
-                Candidate's Answer: "{answer}"
-                
-                Evaluate the answer across the following 6 criteria:
-                1. Correctness: Assign a score from 0.0 to 10.0. Is the answer technically correct? Are there any errors, misconceptions, or invalid claims?
-                2. Depth: Assign a score from 0.0 to 10.0. Does the candidate explain the "how" and "why", detailing underlying mechanisms, architecture, or complexities?
-                3. Relevance: Assign a score from 0.0 to 10.0. Does the response stay focused on the specific question asked, avoiding irrelevant rambling?
-                4. Completeness: Assign a score from 0.0 to 10.0. Does the answer address all parts and components of the question?
-                5. Communication Quality: Assign a score from 0.0 to 10.0. Is the explanation clear, well-articulated, cohesive, and easy to follow?
-                6. Confidence: Assign a score from 0.0 to 10.0. Does the candidate speak with assurance, avoiding excessive hesitation markers, qualifiers (e.g. "I guess", "maybe"), or self-doubt?
-                
-                Calculate an overall "answer_score" from 0.0 to 100.0 (typically the average of the 6 scores multiplied by 10).
-                Provide a detailed feedback summary explaining the scores, and 2-3 specific suggestions for improvement.
-                
-                Respond ONLY with a valid JSON object matching the schema below. Do not wrap the JSON in markdown code blocks or add any other text.
-                
-                {{
-                  "correctness": 0.0,
-                  "depth": 0.0,
-                  "relevance": 0.0,
-                  "completeness": 0.0,
-                  "communication_quality": 0.0,
-                  "confidence": 0.0,
-                  "answer_score": 0.0,
-                  "feedback": "A detailed explanation of the scores...",
-                  "suggestions": "Actionable, specific suggestions for improvement..."
-                }}
-                """
+You are an expert technical interviewer evaluating an adaptive technical interview answer with research-grade rigor.
+
+Interview Parameters:
+- Category: {category}{skill_str}
+- Question: "{question}"
+- Candidate's Actual Answer: "{answer}"
+- {keywords_context}
+
+Evaluate the response across the following 6 research dimensions (each from 0.0 to 10.0):
+1. correctness (0.0 to 10.0): Is the technical explanation factually correct? Identify any misconceptions, invalid syntax, or false claims.
+2. depth (0.0 to 10.0): Does the candidate explain "how" and "why" — internal architecture, memory/time complexity (O notation), algorithms, or data structures?
+3. relevance (0.0 to 10.0): Does the response directly address the question without irrelevant rambling?
+4. completeness (0.0 to 10.0): Are all critical components and common edge cases addressed?
+5. communication_quality (0.0 to 10.0): Is the response well-articulated, cohesive, and structured logically?
+6. confidence (0.0 to 10.0): Is the tone assertive and definitive, avoiding excessive hesitation or tentative qualifiers ("maybe", "I guess")?
+
+Overall Score Calibration:
+- Calculate "answer_score" (0.0 to 100.0) reflecting overall competency:
+  * 90–100: Exceptional, deep technical grasp with trade-offs and complexity analysis.
+  * 75–89: Solid, correct, covers primary mechanics with minor omissions.
+  * 50–74: Average, partial understanding, relies on surface definition without mechanics.
+  * 25–49: Deficient, significant misconceptions or missing core concept.
+  * 0–24: Inaccurate, off-topic, or non-responsive.
+
+Crucial Instructions:
+- Base feedback entirely on the candidate's actual text. Do NOT invent concepts or praise what was not mentioned.
+- "feedback": 1–2 paragraphs detailing exact strengths, specific errors/omissions, and a model reference answer.
+- "suggestions": 2–3 actionable, bulleted technical improvements.
+
+Respond strictly with a valid JSON object matching this exact schema:
+{{
+  "correctness": 0.0,
+  "depth": 0.0,
+  "relevance": 0.0,
+  "completeness": 0.0,
+  "communication_quality": 0.0,
+  "confidence": 0.0,
+  "answer_score": 0.0,
+  "feedback": "Objective, detailed feedback detailing exact strengths, gaps, and technical insights...",
+  "suggestions": "1. Concrete improvement 1...\\n2. Concrete improvement 2..."
+}}
+"""
                 
                 response = self._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=False
+                    json_mode=False,
+                    temperature=0.15,
+                    max_tokens=900
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -224,6 +262,11 @@ class GroqService:
                 eval_data = json.loads(response_text)
                 required_keys = ["correctness", "depth", "relevance", "completeness", "communication_quality", "confidence", "answer_score", "feedback", "suggestions"]
                 if all(k in eval_data for k in required_keys):
+                    if isinstance(eval_data["suggestions"], list):
+                        eval_data["suggestions"] = "\n".join(f"{i+1}. {s}" for i, s in enumerate(eval_data["suggestions"]))
+                    for k in ["correctness", "depth", "relevance", "completeness", "communication_quality", "confidence"]:
+                        eval_data[k] = round(float(eval_data[k]), 1)
+                    eval_data["answer_score"] = round(float(eval_data["answer_score"]), 1)
                     self._log_api_call(provider="groq", endpoint="evaluate_answer_adaptive", response_time=duration, is_success=True)
                     return eval_data
             except Exception as e:
@@ -348,30 +391,47 @@ class GroqService:
         }
 
     def generate_follow_up(self, question, answer):
-        """Generates a dynamic follow-up question based on the candidate's response."""
-        default_follow_up = "Could you elaborate on how you handled the challenges during that implementation?"
+        """
+        Generates a dynamic, highly-targeted follow-up question based directly on the candidate's actual answer.
+        Probes missing mechanisms, challenges complete answers with scaling/edge cases, or explores trade-offs.
+        """
+        default_follow_up = "Could you elaborate on how you handled the architectural challenges or complexity trade-offs during that implementation?"
         
         if self.initialized:
             start_time = time.time()
             try:
                 prompt = f"""
-                You are a professional interviewer. The candidate has just answered a question.
-                
-                Original Question: "{question}"
-                Candidate's Answer: "{answer}"
-                
-                Based on their answer, ask a single relevant, natural, and engaging follow-up question. 
-                Keep it concise (1-2 sentences), professional, and conversational. 
-                Do not add any greetings or conversational introductory text, just output the follow-up question.
-                """
+You are an experienced senior technical interviewer conducting an in-depth mock interview. The candidate has just answered a question.
+
+Original Question: "{question}"
+Candidate's Actual Answer: "{answer}"
+
+Generate a single, natural, highly-targeted follow-up question based directly on their response:
+- If their answer was incomplete or surface-level: Probe the specific missing mechanism, underlying data structure, or complexity trade-off ($O$ notation).
+- If their answer was strong and complete: Challenge them with an advanced scenario (e.g. high-concurrency scaling, memory bottlenecks, failure recovery, or edge cases).
+- If their answer contained a misconception: Ask a constructive, targeted question that prompts them to examine that specific principle without sounding argumentative.
+- If they mentioned a specific tool, framework, or algorithm: Ask about their implementation experience or why they would choose it over a common alternative.
+
+Requirements:
+- Ask exactly ONE question.
+- Keep it concise (1 to 2 sentences max).
+- Sound like an engaging, curious engineering lead.
+- Do NOT include conversational pleasantries, introductory praise, or filler ("Great answer!", "Thank you"). Output ONLY the follow-up question itself.
+"""
                 
                 response = self._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=False
+                    json_mode=False,
+                    temperature=0.6,
+                    max_tokens=150
                 )
                 duration = time.time() - start_time
-                self._log_api_call(provider="groq", endpoint="generate_follow_up", response_time=duration, is_success=True)
-                return response.choices[0].message.content.strip()
+                follow_up_text = response.choices[0].message.content.strip().strip('"\'')
+                # Clean any accidental conversational prefix
+                follow_up_text = re.sub(r'^(?:follow-up question:?|here is a follow-up:?)\s*', '', follow_up_text, flags=re.IGNORECASE)
+                if follow_up_text:
+                    self._log_api_call(provider="groq", endpoint="generate_follow_up", response_time=duration, is_success=True)
+                    return follow_up_text
             except Exception as e:
                 duration = time.time() - start_time
                 self._log_api_call(provider="groq", endpoint="generate_follow_up", response_time=duration, is_success=False, status_code=500, response_payload=str(e))
@@ -389,13 +449,16 @@ class GroqService:
         return default_follow_up
 
     def generate_resume_questions(self, resume_text):
-        """Parses extracted resume text and returns 5 custom interview questions based on projects, skills, and experiences."""
+        """
+        Parses candidate resume text and generates 5 progressive, rigorous interview questions
+        tailored directly to their declared stack, projects, and career domain.
+        """
         fallback_questions = [
-            "Explain the technical challenges you faced in your most significant project listed in your resume.",
-            "Why did you choose the specific programming languages and databases mentioned in your skills section?",
-            "Can you describe a situation where you had to quickly learn a new technology mentioned in your resume?",
-            "Walk me through the architecture of your favorite project. How does it handle scaling?",
-            "What motivated you to work on the domain of your key project, and what were the main takeaways?"
+            "Explain the architectural decisions and component trade-offs of the primary project listed on your resume.",
+            "Walk me through the internal mechanism of the core language/database you claimed highest proficiency with.",
+            "Can you describe a challenging engineering bottleneck you encountered in production and how you debugged it?",
+            "How would you re-architect your favorite project to support a 10x surge in concurrent traffic?",
+            "Describe a situation where you had to balance technical debt with delivering a feature on time."
         ]
         
         if not resume_text or len(resume_text.strip()) < 50:
@@ -405,23 +468,30 @@ class GroqService:
             start_time = time.time()
             try:
                 prompt = f"""
-                You are a recruiter analyzing a candidate's resume text. 
-                Generate exactly 5 customized, technical and behavioral interview questions tailored directly to the projects, technical skills, and work/academic experience mentioned in their resume.
-                
-                Resume Text:
-                \"\"\"{resume_text[:4000]}\"\"\"
-                
-                Respond ONLY with a valid JSON array of strings. Do not include markdown code blocks or explanatory text.
-                
-                Example format:
-                [
-                  "Question 1 based on project X...",
-                  "Question 2 based on skill Y..."
-                ]
-                """
+You are an engineering hiring manager designing a technical interview tailored specifically to a candidate's resume.
+
+Resume Content:
+\"\"\"{resume_text[:4000]}\"\"\"
+
+Analyze the resume's stated technologies, frameworks, and projects. Generate exactly 5 progressive, rigorous interview questions that evaluate genuine technical depth:
+1. Architecture & Design: A deep dive into the architecture, component breakdown, and database decisions of their most significant stated project.
+2. Core Technical Competency: An in-depth mechanism question on their primary claimed programming language or backend/frontend framework (e.g., memory management, asynchronous execution, indexing, state synchronization).
+3. Engineering Challenge & Trade-offs: A question probing a real technical bottleneck, scalability challenge, or engineering trade-off faced during project development.
+4. Production Readiness & Reliability: A scenario-based question about handling failures, caching, API security, or high concurrent load in their project domain.
+5. Behavioral & Ownership (STAR format): A question about technical ownership, resolving a challenging bug, or code review collaboration tied to their stated experience.
+
+Respond strictly with a valid JSON array of 5 strings. Do not add markdown code blocks or explanatory text.
+Example format:
+[
+  "In your [Project Name], walk me through how data flows from the client to your database...",
+  "Given your experience with [Technology], how does it handle..."
+]
+"""
                 response = self._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=False
+                    json_mode=False,
+                    temperature=0.5,
+                    max_tokens=700
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -433,11 +503,14 @@ class GroqService:
                         
                 questions = json.loads(response_text)
                 if isinstance(questions, list) and len(questions) > 0:
-                    self._log_api_call(provider="groq", endpoint="generate_resume_questions", response_time=duration, is_success=True)
-                    return questions[:5]
+                    clean_questions = [str(q).strip() for q in questions if str(q).strip()]
+                    if len(clean_questions) >= 3:
+                        self._log_api_call(provider="groq", endpoint="generate_resume_questions", response_time=duration, is_success=True)
+                        return clean_questions[:5]
             except Exception as e:
                 duration = time.time() - start_time
                 self._log_api_call(provider="groq", endpoint="generate_resume_questions", response_time=duration, is_success=False, status_code=500, response_payload=str(e))
+                print(f"Groq API resume questions generation failed: {e}")
                 print(f"Groq API resume questions generation failed: {e}")
                 
         # Simple local parser if API is not setup
@@ -571,15 +644,19 @@ class GroqService:
         }
 
     def analyze_resume_details(self, resume_text):
-        """Analyzes a candidate's resume and extracts key metrics using Groq."""
+        """
+        Analyzes a candidate's resume with professional ATS and technical recruiter rigor.
+        Extracts verified skills, projects, experience, missing high-demand industry skills,
+        and provides calibrated ATS scores with Google X-Y-Z formula recommendations.
+        """
         fallback_details = {
             "skills": "Software Development",
             "projects": "No specific projects found in text",
             "experience": "No specific experience found in text",
             "certifications": "No certifications listed in text",
-            "missing_skills": "System Design, Cloud Deployments, Microservices",
+            "missing_skills": "System Design, Cloud Deployments, Microservices, CI/CD",
             "ats_score": 60,
-            "suggestions": "1. Highlight technical achievements with measurable impact.\n2. Add standard industry keywords related to target roles.\n3. Keep formatting clean and consistent."
+            "suggestions": "1. Convert bullet points using Google's X-Y-Z formula: Accomplished [X] as measured by [Y] by doing [Z].\n2. Add quantifiable engineering metrics (e.g., latency reduction, throughput, user count).\n3. Include missing industry-standard tools like Docker, Git workflows, and automated testing."
         }
         if not resume_text or len(resume_text.strip()) < 50:
             return fallback_details
@@ -588,27 +665,29 @@ class GroqService:
             start_time = time.time()
             try:
                 prompt = f"""
-                You are an expert ATS (Applicant Tracking System) parser and recruiter. Parse the following candidate resume text and extract structured metrics.
-                
-                Resume Text:
-                \"\"\"{resume_text[:4000]}\"\"\"
-                
-                Analyze the resume and return a valid JSON object matching this schema:
-                {{
-                  "skills": "Comma-separated list of extracted technical/professional skills",
-                  "projects": "Short summary of projects listed in the resume",
-                  "experience": "Short summary of work or academic experience listed",
-                  "certifications": "Comma-separated list of certifications or courses",
-                  "missing_skills": "Top 3-5 standard industry skills that are missing based on the candidate's career track",
-                  "ats_score": Integer between 10 and 100 representing how well the resume is written and formatted,
-                  "suggestions": "A few detailed bullet points recommending how to improve the resume for applicant tracking systems"
-                }}
-                
-                Do not include markdown code blocks or any introductory/explanatory text. Respond only with the JSON object.
-                """
+You are a senior technical recruiter and ATS (Applicant Tracking System) optimization specialist. Parse and critically evaluate the candidate's resume text.
+
+Resume Content:
+\"\"\"{resume_text[:4000]}\"\"\"
+
+Perform a rigorous, honest evaluation and return a valid JSON object matching this schema:
+{{
+  "skills": "Clean, comma-separated list of verified technical and professional skills detected in the resume",
+  "projects": "Concise summary of candidate's technical projects including detected tech stack and features",
+  "experience": "Summary of work experience, internships, or academic project milestones",
+  "certifications": "Certifications, courses, or relevant academic honors detected (or 'None explicitly listed')",
+  "missing_skills": "Top 3–5 high-demand industry skills missing for their specific career track (e.g., Docker, CI/CD, Redis, Unit Testing, System Design)",
+  "ats_score": <integer between 35 and 90 calibrated as: 75–90 for strong quantifiable impact metrics using the Google X-Y-Z formula, clean formatting, and high keyword match; 55–74 for standard descriptive bullets without clear metrics; 35–54 for generic or sparse content>,
+  "suggestions": "3–4 actionable, bulleted recommendations to optimize this resume for ATS screening. Specifically demonstrate how to convert at least one project bullet into Google's X-Y-Z formula (Accomplished [X] as measured by [Y] by doing [Z]). Note that scores are diagnostic benchmarks."
+}}
+
+Do not wrap in markdown code blocks. Respond ONLY with the JSON object.
+"""
                 response = self._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=False
+                    json_mode=False,
+                    temperature=0.2,
+                    max_tokens=900
                 )
                 duration = time.time() - start_time
                 response_text = response.choices[0].message.content.strip()
@@ -621,11 +700,14 @@ class GroqService:
                 details = json.loads(response_text)
                 required_keys = ["skills", "projects", "experience", "certifications", "missing_skills", "ats_score", "suggestions"]
                 if all(k in details for k in required_keys):
-                    self._log_api_call(provider="groq", endpoint="analyze_resume_details", response_time=duration, is_success=True)
                     try:
-                        details["ats_score"] = int(details["ats_score"])
+                        score_val = int(float(details["ats_score"]))
+                        details["ats_score"] = max(20, min(95, score_val))
                     except Exception:
-                        details["ats_score"] = 70
+                        details["ats_score"] = 65
+                    if isinstance(details["suggestions"], list):
+                        details["suggestions"] = "\n".join(f"{i+1}. {s}" for i, s in enumerate(details["suggestions"]))
+                    self._log_api_call(provider="groq", endpoint="analyze_resume_details", response_time=duration, is_success=True)
                     return details
             except Exception as e:
                 duration = time.time() - start_time

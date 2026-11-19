@@ -133,25 +133,29 @@ def select():
             if groq_service.initialized:
                 try:
                     prompt = f"""
-                    You are a technical interviewer assistant. Read the following project information supplied by the candidate and generate a structured JSON representing the system design and technical aspects:
-                    
-                    {project_text}
-                    
-                    Respond strictly with a JSON object containing the following keys (do not add any markdown blocks or other text):
-                    {{
-                      "project_title": "Title of the project (if unknown, guess from context)",
-                      "domain": "Domain area, e.g. E-commerce, FinTech, IoT, AI, etc.",
-                      "technologies": ["List of all libraries, frameworks, databases, tools detected"],
-                      "architecture": "Short description of the software architecture (e.g. MVC, Microservices, Client-Server, Monolith)",
-                      "features": ["Key functionalities implemented"],
-                      "probable_modules": ["Probable logical components of this project, e.g. User Auth, Database layer, API router"],
-                      "probable_challenges": ["Challenges likely faced, e.g. Syncing state, handling high traffic, parsing PDF content"],
-                      "probable_scalability_topics": ["Suggested topics for scaling this project, e.g. Caching, Load balancing, database indexing"]
-                    }}
-                    """
+You are a principal software architect and technical interviewer. Analyze the following candidate project information to extract a structured technical design breakdown:
+
+Project Input:
+{project_text}
+
+Extract and synthesize the software architecture and engineering dimensions. Respond strictly with a valid JSON object matching this schema:
+{{
+  "project_title": "Precise title of the project",
+  "domain": "Domain area (e.g. E-Commerce, Distributed Systems, FinTech, Machine Learning, Developer Tools)",
+  "technologies": ["List of all detected programming languages, frameworks, libraries, databases, and deployment tools"],
+  "architecture": "Clear description of the software architecture (e.g. Layered MVC, Event-Driven Microservices, Client-Server REST Monolith, Pipeline)",
+  "features": ["Core functional capabilities implemented in the project"],
+  "probable_modules": ["Logical system components (e.g. Authentication Service, Database Abstraction Layer, Async Worker, API Gateway)"],
+  "probable_challenges": ["Real engineering bottlenecks or challenges (e.g. Concurrency race conditions, caching invalidation, PDF streaming latency, schema migrations)"],
+  "probable_scalability_topics": ["Specific topics for scaling (e.g. Redis caching, read-replicas, rate limiting, connection pooling, indexing)"]
+}}
+Do not wrap in markdown code blocks. Respond strictly with valid JSON.
+"""
                     llm_res = groq_service._create_chat_completion(
                         messages=[{"role": "user", "content": prompt}],
-                        json_mode=True
+                        json_mode=True,
+                        temperature=0.2,
+                        max_tokens=900
                     )
                     llm_text = llm_res.choices[0].message.content.strip()
                     if llm_text.startswith("```"):
@@ -174,34 +178,40 @@ def select():
             if groq_service.initialized:
                 try:
                     prompt = f"""
-                    You are a technical interviewer. Read the structured understanding of the candidate's project:
-                    
-                    {json.dumps(project_understanding, indent=2)}
-                    
-                    Generate exactly 21 mock interview questions tailored directly to this project.
-                    For each of the following 7 categories:
-                    - Project Understanding
-                    - Architecture
-                    - Technology Stack
-                    - Implementation
-                    - Challenges
-                    - Scalability
-                    - Contribution Verification
-                    
-                    Generate exactly 3 questions: one Easy, one Medium, and one Hard.
-                    
-                    Respond strictly with a JSON array of 21 objects. Do not add markdown code blocks or any other explanation. Each object must look like:
-                    {{
-                      "text": "The full text of the question (e.g. 'Why did you choose PostgreSQL instead of MongoDB for this domain?')",
-                      "category": "Project",
-                      "skill": "The category name (must be one of: Project Understanding, Architecture, Technology Stack, Implementation, Challenges, Scalability, Contribution Verification)",
-                      "difficulty": "Easy, Medium, or Hard",
-                      "expected_keywords": ["keyword1", "keyword2", "keyword3"]
-                    }}
-                    """
+You are an engineering hiring manager conducting a project-based technical interview round.
+Read this verified architectural breakdown of the candidate's project:
+
+{json.dumps(project_understanding, indent=2)}
+
+Generate exactly 21 mock interview questions tailored directly to this project.
+Cover each of the following 7 categories with exactly 3 questions (one Easy, one Medium, one Hard):
+1. Project Understanding (High-level problem statement, target audience, core business value)
+2. Architecture (Component relationships, data flow, API design, monolithic vs microservice choices)
+3. Technology Stack (Why specific libraries/databases were chosen over industry alternatives)
+4. Implementation (Code-level design patterns, state management, error handling, ORM/query design)
+5. Challenges (Debugging incidents, performance bottlenecks, race conditions, schema trade-offs)
+6. Scalability (Handling 10x traffic, caching strategies, database indexing, horizontal scaling)
+7. Contribution Verification (Probing candidate's personal contribution vs template/boilerplate code)
+
+Difficulty Guidelines:
+- Easy: Checks basic familiarity with project features, purpose, and language/framework choices.
+- Medium: Probes implementation mechanics, error recovery, state management, and architectural trade-offs.
+- Hard: Stress-tests failure modes, concurrency, scalability bottlenecks, security, and edge-case engineering decisions.
+
+Respond strictly with a JSON array of 21 objects. Do not add markdown code blocks or any other explanation. Each object must match:
+{{
+  "text": "The full, realistic interviewer question",
+  "category": "Project",
+  "skill": "The category name (Project Understanding, Architecture, Technology Stack, Implementation, Challenges, Scalability, or Contribution Verification)",
+  "difficulty": "Easy, Medium, or Hard",
+  "expected_keywords": ["keyword1", "keyword2", "keyword3"]
+}}
+"""
                     llm_res = groq_service._create_chat_completion(
                         messages=[{"role": "user", "content": prompt}],
-                        json_mode=True
+                        json_mode=True,
+                        temperature=0.3,
+                        max_tokens=2500
                     )
                     llm_text = llm_res.choices[0].message.content.strip()
                     if llm_text.startswith("```"):
@@ -990,22 +1000,31 @@ def finalize(session_id):
                     transcript_summary += f"Q: {r.question_text}\nA: {r.transcript or ''}\n\n"
                     
                 prompt = f"""
-                You are a senior technical recruiter evaluating a candidate's Project Interview.
-                Here is the transcript of their interview:
-                {transcript_summary}
-                
-                Provide structured feedback on their project presentation. Respond strictly with a JSON object containing the following keys (do not add any markdown blocks or other text):
-                {{
-                  "strengths": ["List of strengths identified in their project understanding, design, or implementation depth"],
-                  "weaknesses": ["List of gaps, missing details, or weaknesses"],
-                  "improvements": ["List of actionable steps to improve the project design or code"],
-                  "revision_topics": ["Specific technologies or architecture topics they should revise"],
-                  "presentation_tips": ["Actionable tips for presenting this project better in real recruiter rounds"]
-                }}
-                """
+You are a senior engineering hiring manager evaluating a candidate's Project Defense interview.
+Here is the actual transcript of the interview questions and candidate answers:
+
+{transcript_summary}
+
+Provide a structured, rigorous assessment of their project presentation and technical depth.
+Evaluate with real engineering standards:
+- Did they demonstrate deep architectural understanding or just repeat high-level bullet points?
+- Were their explanations of technology choices grounded in engineering trade-offs?
+- Did they clearly prove individual contribution vs boilerplate code?
+
+Respond strictly with a JSON object containing:
+{{
+  "strengths": ["3 specific engineering strengths demonstrated in their answers"],
+  "weaknesses": ["2–3 specific technical gaps, vague explanations, or omitted mechanisms"],
+  "improvements": ["2–3 actionable technical steps to improve the project's codebase or design"],
+  "revision_topics": ["Specific technologies, architectural patterns, or algorithms they should revise"],
+  "presentation_tips": ["Actionable coaching on how to present system architectures and trade-offs more convincingly in real interviews"]
+}}
+"""
                 llm_res = groq_service._create_chat_completion(
                     messages=[{"role": "user", "content": prompt}],
-                    json_mode=True
+                    json_mode=True,
+                    temperature=0.2,
+                    max_tokens=800
                 )
                 llm_text = llm_res.choices[0].message.content.strip()
                 if llm_text.startswith("```"):
@@ -1050,33 +1069,57 @@ def finalize(session_id):
     # 6. Generate Explainable Feedback Summary & Suggestions via Groq
     if groq_service.initialized:
         try:
+            # Build concise transcript digest of actual candidate responses
+            responses_digest = ""
+            for idx, r in enumerate(responses):
+                ans_text = (r.transcript or "").strip() or "[No audible response recorded]"
+                q_text = r.question_text
+                score_val = r.answer_score if r.answer_score is not None else 0.0
+                responses_digest += f"Q{idx+1}: {q_text}\nCandidate Answer: {ans_text[:350]}\nScore: {score_val:.1f}/100\n\n"
+
             prompt = f"""
-            You are a senior recruiter writing a final assessment report for a candidate who just completed a {interview_sess.interview_type} mock interview.
-            
-            Scores:
-            - Overall: {overall_score:.1f}/100
-            - Communication: {comm_score:.1f}/100
-            - Technical Knowledge: {tech_score:.1f}/100
-            - Answer Quality: {quality_score:.1f}/100
-            - Professionalism: {prof_score:.1f}/100
-            - Confidence & Eye Contact: {conf_score:.1f}/100
-            
-            Key speech statistics:
-            - Average eye contact: {avg_eye_contact:.1f}%
-            - Total filler words used: {total_fillers}
-            
-            Write a detailed, constructive feedback summary (explain WHY they got these scores, e.g. 'Your communication score was reduced because filler words were used frequently and examples were limited.') and provide a bulleted list of 5 actionable recommendations for their placement preparation.
-            
-            Format your response strictly as a JSON object:
-            {{
-              "feedback_summary": "Paragraph describing overall performance and reasons for scores...",
-              "recommendations": "1. Detail recommendation 1...\\n2. Detail recommendation 2...\\n3. Detail recommendation 3...\\n4. Detail recommendation 4...\\n5. Detail recommendation 5..."
-            }}
-            """
+You are a senior engineering hiring manager and executive interviewer conducting a comprehensive, objective assessment of a candidate who completed a {interview_sess.interview_type} mock interview for the role of '{interview_sess.role_applied}'.
+
+Diagnostic Performance Metrics:
+- Overall Score: {overall_score:.1f}/100
+- Technical Competency: {tech_score:.1f}/100
+- Answer Quality & Depth: {quality_score:.1f}/100
+- Communication & Cohesion: {comm_score:.1f}/100
+- Professionalism & Engineering Vocabulary: {prof_score:.1f}/100
+- Behavioral Signals: Average Eye Contact {avg_eye_contact:.1f}%, Speech Pace {avg_wpm:.0f} WPM, Filler Words: {total_fillers}
+
+Interview Transcript Digest:
+{responses_digest}
+
+Instructions for the Executive Report:
+1. "feedback_summary": Write a thorough, structured, executive-level technical assessment (2–3 paragraphs).
+   - Verdict & Placement Readiness: Clear assessment of placement readiness based on the overall score without generic platitudes or unearned praise.
+   - Demonstrated Strengths: Explicitly reference specific questions/topics where the candidate demonstrated solid technical grasp.
+   - Deficiencies & Gaps: Call out the weakest answers, omitted mechanisms (complexity, memory trade-offs, internal architecture), or misconceptions.
+   - Delivery & Communication: Synthesize speech pace, filler frequency, and articulation clarity.
+   - Do NOT invent candidate claims or strengths. Base every observation on their actual answers above.
+2. "recommendations": Provide exactly 5 prioritized, highly specific, actionable engineering recommendations.
+   - Must address their demonstrated weak areas (e.g., "Deepen knowledge of B-Tree indexing vs hash indexing", "Practice structuring responses with the STAR method").
+   - Format each recommendation as a single clear sentence.
+
+Format your response strictly as a JSON object:
+{{
+  "feedback_summary": "Thorough, structured recruiter evaluation paragraph(s)...",
+  "recommendations": [
+    "Prioritized actionable recommendation 1...",
+    "Prioritized actionable recommendation 2...",
+    "Prioritized actionable recommendation 3...",
+    "Prioritized actionable recommendation 4...",
+    "Prioritized actionable recommendation 5..."
+  ]
+}}
+"""
             
             response = groq_service._create_chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                json_mode=True
+                json_mode=True,
+                temperature=0.25,
+                max_tokens=1400
             )
             resp_text = response.choices[0].message.content.strip()
             

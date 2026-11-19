@@ -936,9 +936,11 @@ class AdaptiveEngine:
                           "reason": "Detailed explanation of the cognitive adaptation decision"
                         }}
                         """
-                        llm_res = self.groq_service.client.chat.completions.create(
-                            model=self.groq_service.model_name,
-                            messages=[{"role": "user", "content": prompt}]
+                        llm_res = self.groq_service._create_chat_completion(
+                            messages=[{"role": "user", "content": prompt}],
+                            json_mode=True,
+                            temperature=0.15,
+                            max_tokens=350
                         )
                         llm_text = llm_res.choices[0].message.content.strip()
                         if llm_text.startswith("```"):
@@ -1147,9 +1149,11 @@ class AdaptiveEngine:
                   "reason": "Detailed explanation of cognitive adaptation decision"
                 }}
                 """
-                llm_res = self.groq_service.client.chat.completions.create(
-                    model=self.groq_service.model_name,
-                    messages=[{"role": "user", "content": prompt}]
+                llm_res = self.groq_service._create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    json_mode=True,
+                    temperature=0.15,
+                    max_tokens=350
                 )
                 llm_text = llm_res.choices[0].message.content.strip()
                 if llm_text.startswith("```"):
